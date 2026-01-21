@@ -4,10 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LOS 飛行訓練 (通道自訂版)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
     <style>
+        /* 基礎樣式：確保背景是黑的，字是白的 */
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; user-select: none; }
         
-        /* HUD & Overlay Styles (保持不變) */
+        /* 設定畫面 (Setup Screen) */
+        #setup-screen { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(20,20,20,0.95); /* 深灰背景 */
+            z-index: 1000; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            color: white; 
+            overflow-y: auto; 
+        }
+        
+        /* 設定框框 */
+        .setup-box { 
+            background: #1e1e1e; padding: 25px; border-radius: 12px; border: 1px solid #444; 
+            width: 90%; max-width: 550px; text-align: center; 
+            box-shadow: 0 0 30px rgba(0,0,0,0.8); 
+        }
+
+        /* 通道列樣式 */
+        .channel-row { display: flex; align-items: center; margin-bottom: 10px; justify-content: space-between; background: #252525; padding: 8px 10px; border-radius: 6px; }
+        .ch-info { width: 140px; text-align: left; display: flex; align-items: center; gap: 5px; }
+        .ch-label { font-weight: bold; font-size: 14px; color: #fff; width: 40px;}
+        select { background: #333; color: #00ffcc; border: 1px solid #555; padding: 2px; border-radius: 4px; font-size: 11px; width: 80px; cursor: pointer;}
+
+        .ch-bar-bg { flex: 1; height: 12px; background: #333; margin: 0 10px; border-radius: 6px; overflow: hidden; position: relative; border: 1px solid #444; }
+        .ch-bar-fill { height: 100%; background: #0099ff; width: 50%; position: absolute; left: 0; transition: width 0.05s; }
+        .ch-val { width: 40px; text-align: right; font-family: monospace; font-size: 12px; color: #aaa; }
+        .chk-container { display: flex; align-items: center; font-size: 12px; color: #888; cursor: pointer; margin-left: 10px;}
+        
+        /* 開始按鈕 */
+        .start-btn { 
+            background: linear-gradient(to right, #0099ff, #00ffcc); 
+            border: none; padding: 12px 50px; font-size: 20px; font-weight: bold; 
+            color: #000; border-radius: 50px; cursor: pointer; margin-top: 20px; 
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.3); 
+        }
+        .start-btn:hover { filter: brightness(1.1); transform: scale(1.05); }
+
+        /* 遊戲中 HUD */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
         #hud-top { padding: 20px; color: #fff; text-shadow: 1px 1px 2px black; font-size: 18px; font-weight: bold; background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent); display: flex; justify-content: space-between; }
         #center-info { text-align: center; }
@@ -15,29 +55,11 @@
         #instruction { color: #ffff00; font-size: 16px; margin-top: 5px; }
         #progress-bar-container { width: 300px; height: 10px; background: #333; margin: 10px auto; border-radius: 5px; overflow: hidden; border: 1px solid #555; }
         #progress-fill { height: 100%; width: 0%; background: #00ff00; transition: width 0.1s; }
+        
+        /* 過關訊息 */
         #msg-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; display: none; background: rgba(0,0,0,0.9); padding: 40px; border-radius: 15px; border: 2px solid #00ffcc; pointer-events: auto; z-index: 2000; }
         #msg-title { font-size: 40px; color: #00ffcc; margin-bottom: 10px; }
-        
-        /* 設定畫面樣式優化 */
-        #setup-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.95); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; overflow-y: auto; }
-        .setup-box { background: #1e1e1e; padding: 25px; border-radius: 12px; border: 1px solid #444; width: 90%; max-width: 550px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
-        
-        .channel-row { display: flex; align-items: center; margin-bottom: 10px; justify-content: space-between; background: #252525; padding: 8px 10px; border-radius: 6px; }
-        
-        /* 新增：選單樣式 */
-        .ch-info { width: 140px; text-align: left; display: flex; align-items: center; gap: 5px; }
-        .ch-label { font-weight: bold; font-size: 14px; color: #fff; width: 40px;}
-        select { background: #333; color: #00ffcc; border: 1px solid #555; padding: 2px; border-radius: 4px; font-size: 11px; width: 80px; }
-
-        .ch-bar-bg { flex: 1; height: 12px; background: #333; margin: 0 10px; border-radius: 6px; overflow: hidden; position: relative; border: 1px solid #444; }
-        .ch-bar-fill { height: 100%; background: #0099ff; width: 50%; position: absolute; left: 0; transition: width 0.05s; }
-        .ch-val { width: 40px; text-align: right; font-family: monospace; font-size: 12px; color: #aaa; }
-        .chk-container { display: flex; align-items: center; font-size: 12px; color: #888; cursor: pointer; margin-left: 10px;}
-        
-        .start-btn { background: linear-gradient(to right, #0099ff, #00ffcc); border: none; padding: 12px 50px; font-size: 20px; font-weight: bold; color: #000; border-radius: 50px; cursor: pointer; margin-top: 20px; box-shadow: 0 0 15px rgba(0, 255, 204, 0.3); }
-        .start-btn:hover { filter: brightness(1.1); transform: scale(1.05); }
-    </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    </style>
 </head>
 <body>
 

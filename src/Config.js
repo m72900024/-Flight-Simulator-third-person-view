@@ -8,13 +8,20 @@ export const CONFIG = {
     thrustPower: 35,
     rates: 1.0,
 
-    axes: { roll: 0, pitch: 1, thrust: 3, yaw: 4, arm: 2 },
+    // 預設映射 (大部分搖桿是 0:Roll, 1:Pitch, 2:Throttle or Pitch...)
+    // 這裡只是預設值，進入網頁後會被選單覆蓋
+    axes: { 
+        roll: 0, 
+        pitch: 1, 
+        thrust: 3, // 有些是 2
+        yaw: 4,    // 有些是 3
+        arm: 5     // 通常是開關
+    },
     
-    // 反轉設定 (會在 Input.js 中動態讀取)
     invert: {
         t: false,
         r: false,
-        p: true,  // 預設 Pitch 反轉
-        y: false
+        e: true, // Elevator (Pitch) 通常需要反轉
+        a: false
     }
 };

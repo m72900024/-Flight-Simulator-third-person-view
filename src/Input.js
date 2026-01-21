@@ -8,12 +8,15 @@ export class InputController {
         window.addEventListener("gamepadconnected", (e) => {
             console.log("Gamepad connected:", e.gamepad.id);
             this.gamepadIndex = e.gamepad.index;
+            // 發送事件通知 UI 搖桿已連接，可以更新下拉選單了
+            window.dispatchEvent(new CustomEvent('gamepad-ready', { detail: { gamepad: e.gamepad } }));
         });
     }
 
-    // 提供給外部呼叫，更新反轉設定
-    updateInvertSettings(inverts) {
-        CONFIG.invert = inverts;
+    // 讓外部可以更新設定
+    updateConfig(newAxes, newInverts) {
+        if(newAxes) CONFIG.axes = newAxes;
+        if(newInverts) CONFIG.invert = newInverts;
     }
 
     update() {
@@ -26,25 +29,26 @@ export class InputController {
 
         // 讀取並處理死區
         const readAxis = (idx, invert) => {
+            // 安全檢查：如果還沒設定好通道，預設為 0
+            if (idx === undefined || idx === null) return 0;
+            
             let val = gp.axes[idx] || 0;
             if (Math.abs(val) < 0.05) val = 0;
             return invert ? -val : val;
         };
 
-        // 油門處理 (有些搖桿是 -1~1，有些是 0~1，這裡假設標準是 -1~1 需轉為 0~1)
+        // 油門
         let rawThr = gp.axes[ax.thrust] || 0;
-        // 如果勾選反轉，先把原始值反過來
-        if (inv.t) rawThr = -rawThr; 
-        
-        // 轉換為 0~1
+        if (inv.t) rawThr = -rawThr;
         this.state.t = (rawThr + 1) / 2;
         this.state.t = Math.max(0, Math.min(1, this.state.t));
 
-        this.state.r = readAxis(ax.roll, inv.a); // 注意 UI 的 id 是 a (Aileron) 對應 roll
-        this.state.p = readAxis(ax.pitch, inv.e); // e (Elevator) 對應 pitch
-        this.state.y = readAxis(ax.yaw, inv.r);   // r (Rudder) 對應 yaw
+        // 姿態 (注意這裡使用的 key 要對應 Config.js)
+        this.state.r = readAxis(ax.roll, inv.a); // Aileron
+        this.state.p = readAxis(ax.pitch, inv.e); // Elevator
+        this.state.y = readAxis(ax.yaw, inv.r);   // Rudder
 
-        // 解鎖開關
+        // 解鎖
         const armVal = gp.axes[ax.arm] || -1;
         this.state.armed = armVal > 0.5;
 

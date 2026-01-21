@@ -16,40 +16,33 @@ export class PhysicsEngine {
     }
 
     update(dt, input) {
-        // 1. 計算推力 (Thrust)
+        // 推力
         const thrustMag = input.armed ? (Math.pow(input.t, 2) * CONFIG.thrustPower) : 0;
         const force = new THREE.Vector3(0, 1, 0).applyQuaternion(this.quat).multiplyScalar(thrustMag);
 
-        // 2. 加入重力 (Gravity)
+        // 重力
         force.y -= CONFIG.mass * CONFIG.gravity;
 
-        // 3. 加入空氣阻力 (Drag)
+        // 阻力
         const drag = this.vel.clone().multiplyScalar(-CONFIG.dragCoeff * this.vel.length());
         force.add(drag);
 
-        // 4. 線性運動積分 (F=ma)
+        // 運動方程
         const accel = force.divideScalar(CONFIG.mass);
         this.vel.add(accel.multiplyScalar(dt));
         this.pos.add(this.vel.clone().multiplyScalar(dt));
 
-        // 5. 地板碰撞與邊界檢查
+        // 地板碰撞
         if (this.pos.y < CONFIG.hardDeck) {
             this.pos.y = CONFIG.hardDeck;
             this.vel.y = 0;
-            this.vel.x *= 0.5; // 摩擦力
+            this.vel.x *= 0.5;
             this.vel.z *= 0.5;
         }
-        
-        // 簡單邊界防止飛丟 (例如飛出 30公尺外)
-        if(this.pos.length() > 50) {
-            this.reset();
-        }
 
-        // 6. 旋轉運動 (Acro Mode)
+        // 旋轉 (Acro)
         const maxRate = THREE.MathUtils.degToRad(600 * CONFIG.rates);
         const targetRotVel = new THREE.Vector3(input.p, input.y, -input.r).multiplyScalar(maxRate);
-        
-        // 簡單的慣性模擬
         this.rotVel.lerp(targetRotVel, 10 * dt);
 
         const theta = this.rotVel.length() * dt;

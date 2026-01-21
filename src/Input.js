@@ -8,12 +8,12 @@ export class InputController {
         window.addEventListener("gamepadconnected", (e) => {
             console.log("Gamepad connected:", e.gamepad.id);
             this.gamepadIndex = e.gamepad.index;
-            // 發送事件通知 UI 搖桿已連接，可以更新下拉選單了
+            // 通知 main.js 更新 UI
             window.dispatchEvent(new CustomEvent('gamepad-ready', { detail: { gamepad: e.gamepad } }));
         });
     }
 
-    // 讓外部可以更新設定
+    // 更新映射
     updateConfig(newAxes, newInverts) {
         if(newAxes) CONFIG.axes = newAxes;
         if(newInverts) CONFIG.invert = newInverts;
@@ -27,28 +27,24 @@ export class InputController {
         const ax = CONFIG.axes;
         const inv = CONFIG.invert;
 
-        // 讀取並處理死區
         const readAxis = (idx, invert) => {
-            // 安全檢查：如果還沒設定好通道，預設為 0
             if (idx === undefined || idx === null) return 0;
-            
             let val = gp.axes[idx] || 0;
-            if (Math.abs(val) < 0.05) val = 0;
+            if (Math.abs(val) < 0.05) val = 0; // 死區
             return invert ? -val : val;
         };
 
-        // 油門
+        // 油門處理
         let rawThr = gp.axes[ax.thrust] || 0;
         if (inv.t) rawThr = -rawThr;
         this.state.t = (rawThr + 1) / 2;
         this.state.t = Math.max(0, Math.min(1, this.state.t));
 
-        // 姿態 (注意這裡使用的 key 要對應 Config.js)
-        this.state.r = readAxis(ax.roll, inv.a); // Aileron
-        this.state.p = readAxis(ax.pitch, inv.e); // Elevator
-        this.state.y = readAxis(ax.yaw, inv.r);   // Rudder
+        this.state.r = readAxis(ax.roll, inv.a);
+        this.state.p = readAxis(ax.pitch, inv.e);
+        this.state.y = readAxis(ax.yaw, inv.r);
 
-        // 解鎖
+        // 解鎖 (大於 0.5 視為開啟)
         const armVal = gp.axes[ax.arm] || -1;
         this.state.armed = armVal > 0.5;
 

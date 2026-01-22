@@ -24,14 +24,46 @@ export class InputController {
     calibrateCenter() {
         const gp = navigator.getGamepads()[this.gamepadIndex];
         if(!gp) return;
-        
+
         // 記錄當前搖桿位置作為「零點」
         // 注意：油門通常不需要中點校正，只要校正 R/P/Y
         CONFIG.calibration.roll = gp.axes[CONFIG.axes.roll] || 0;
         CONFIG.calibration.pitch = gp.axes[CONFIG.axes.pitch] || 0;
         CONFIG.calibration.yaw = gp.axes[CONFIG.axes.yaw] || 0;
-        
+
         alert("校正完成！請確認搖桿回中後再試。");
+    }
+
+    // 校正端點 (最小值)
+    calibrateMin(channel) {
+        const gp = navigator.getGamepads()[this.gamepadIndex];
+        if(!gp) return;
+
+        const axisIdx = CONFIG.axes[channel];
+        if(axisIdx === undefined) return;
+
+        const val = gp.axes[axisIdx] || 0;
+        CONFIG.endpoints[channel].min = val;
+    }
+
+    // 校正端點 (最大值)
+    calibrateMax(channel) {
+        const gp = navigator.getGamepads()[this.gamepadIndex];
+        if(!gp) return;
+
+        const axisIdx = CONFIG.axes[channel];
+        if(axisIdx === undefined) return;
+
+        const val = gp.axes[axisIdx] || 0;
+        CONFIG.endpoints[channel].max = val;
+    }
+
+    // 將原始值映射到校正後的範圍
+    mapToRange(val, min, max) {
+        // 避免除以零
+        if(max === min) return 0;
+        // 映射到 [-1, 1]
+        return ((val - min) / (max - min)) * 2 - 1;
     }
 
     update() {
@@ -43,28 +75,39 @@ export class InputController {
         const inv = CONFIG.invert;
         const cal = CONFIG.calibration; // 讀取校正值
 
-        // 讀取並扣除校正偏移量
-        const readAxis = (idx, invert, offset = 0) => {
+        // 讀取並扣除校正偏移量 (加入端點校正)
+        const readAxis = (idx, invert, offset = 0, channel = null) => {
             if (idx === undefined || idx === null) return 0;
             let val = gp.axes[idx] || 0;
-            
-            // 扣除偏移
+
+            // 端點校正：映射到 [-1, 1]
+            if (channel && ep[channel]) {
+                val = this.mapToRange(val, ep[channel].min, ep[channel].max);
+            }
+
+            // 扣除中點偏移
             val = val - offset;
+
+            // 限制範圍
+            val = Math.max(-1, Math.min(1, val));
 
             if (Math.abs(val) < 0.05) val = 0; // 死區
             return invert ? -val : val;
         };
 
-        // 油門
+        // 油門 (使用端點校正)
+        const ep = CONFIG.endpoints;
         let rawThr = gp.axes[ax.thrust] || 0;
-        if (inv.t) rawThr = -rawThr;
-        this.state.t = (rawThr + 1) / 2;
+        // 先映射到校正後的 [-1, 1] 範圍
+        let mappedThr = this.mapToRange(rawThr, ep.thrust.min, ep.thrust.max);
+        if (inv.t) mappedThr = -mappedThr;
+        this.state.t = (mappedThr + 1) / 2;
         this.state.t = Math.max(0, Math.min(1, this.state.t));
 
-        // 姿態 (傳入校正值)
-        this.state.r = readAxis(ax.roll, inv.a, cal.roll);
-        this.state.p = readAxis(ax.pitch, inv.e, cal.pitch);
-        this.state.y = readAxis(ax.yaw, inv.r, cal.yaw);
+        // 姿態 (傳入校正值與通道名稱)
+        this.state.r = readAxis(ax.roll, inv.a, cal.roll, 'roll');
+        this.state.p = readAxis(ax.pitch, inv.e, cal.pitch, 'pitch');
+        this.state.y = readAxis(ax.yaw, inv.r, cal.yaw, 'yaw');
 
         // 解鎖
         const armVal = gp.axes[ax.arm] || -1;

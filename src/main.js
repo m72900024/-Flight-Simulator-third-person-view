@@ -78,6 +78,25 @@ window.doCalibration = function() {
     input.calibrateCenter();
 };
 
+// 端點校正
+window.calibrateEndpoint = function(channel, type) {
+    if(type === 'min') {
+        input.calibrateMin(channel);
+    } else {
+        input.calibrateMax(channel);
+    }
+    // 更新按鈕樣式表示已校正
+    const btnId = {
+        thrust: 'cal-t',
+        yaw: 'cal-y',
+        pitch: 'cal-p',
+        roll: 'cal-r'
+    }[channel];
+    if(btnId) {
+        document.getElementById(`${btnId}-${type}`).classList.add('set');
+    }
+};
+
 window.startGameApp = function() {
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('ui-layer').style.display = 'flex';

@@ -27,6 +27,9 @@
         .ch-bar-fill { height: 100%; background: #0099ff; width: 50%; position: absolute; left: 0; transition: width 0.05s; }
         .ch-val { width: 40px; text-align: right; font-family: monospace; font-size: 12px; color: #aaa; }
         .chk-container { display: flex; align-items: center; font-size: 12px; color: #888; cursor: pointer; margin-left: 10px;}
+        .cal-btn { background: #444; border: 1px solid #666; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 10px; cursor: pointer; margin-left: 3px; }
+        .cal-btn:hover { background: #555; }
+        .cal-btn.set { background: #2a5a2a; border-color: #4a4; }
 
         .start-btn { background: linear-gradient(to right, #0099ff, #00ffcc); border: none; padding: 12px 50px; font-size: 20px; font-weight: bold; color: #000; border-radius: 50px; cursor: pointer; margin-top: 20px; box-shadow: 0 0 15px rgba(0, 255, 204, 0.3); }
         .start-btn:hover { filter: brightness(1.1); transform: scale(1.05); }
@@ -83,25 +86,33 @@
                 <div class="ch-info"><div class="ch-label">油門</div><select id="map-t" onchange="window.updateMapping()"><option>...</option></select></div>
                 <div class="ch-bar-bg"><div id="bar-thr" class="ch-bar-fill"></div></div>
                 <div id="txt-thr" class="ch-val">0%</div>
-                <label class="chk-container"><input type="checkbox" id="inv-t" onchange="window.updateMapping()">反转</label>
+                <button id="cal-t-min" class="cal-btn" onclick="window.calibrateEndpoint('thrust','min')">設Min</button>
+                <button id="cal-t-max" class="cal-btn" onclick="window.calibrateEndpoint('thrust','max')">設Max</button>
+                <label class="chk-container"><input type="checkbox" id="inv-t" onchange="window.updateMapping()">反轉</label>
             </div>
             <div class="channel-row">
                 <div class="ch-info"><div class="ch-label">轉向</div><select id="map-r" onchange="window.updateMapping()"><option>...</option></select></div>
                 <div class="ch-bar-bg"><div id="bar-yaw" class="ch-bar-fill"></div></div>
                 <div id="txt-yaw" class="ch-val">0</div>
-                <label class="chk-container"><input type="checkbox" id="inv-r" onchange="window.updateMapping()">反转</label>
+                <button id="cal-y-min" class="cal-btn" onclick="window.calibrateEndpoint('yaw','min')">設Min</button>
+                <button id="cal-y-max" class="cal-btn" onclick="window.calibrateEndpoint('yaw','max')">設Max</button>
+                <label class="chk-container"><input type="checkbox" id="inv-r" onchange="window.updateMapping()">反轉</label>
             </div>
             <div class="channel-row">
                 <div class="ch-info"><div class="ch-label">俯仰</div><select id="map-e" onchange="window.updateMapping()"><option>...</option></select></div>
                 <div class="ch-bar-bg"><div id="bar-pit" class="ch-bar-fill"></div></div>
                 <div id="txt-pit" class="ch-val">0</div>
-                <label class="chk-container"><input type="checkbox" id="inv-e" onchange="window.updateMapping()" checked>反转</label>
+                <button id="cal-p-min" class="cal-btn" onclick="window.calibrateEndpoint('pitch','min')">設Min</button>
+                <button id="cal-p-max" class="cal-btn" onclick="window.calibrateEndpoint('pitch','max')">設Max</button>
+                <label class="chk-container"><input type="checkbox" id="inv-e" onchange="window.updateMapping()" checked>反轉</label>
             </div>
             <div class="channel-row">
                 <div class="ch-info"><div class="ch-label">橫滾</div><select id="map-a" onchange="window.updateMapping()"><option>...</option></select></div>
                 <div class="ch-bar-bg"><div id="bar-rol" class="ch-bar-fill"></div></div>
                 <div id="txt-rol" class="ch-val">0</div>
-                <label class="chk-container"><input type="checkbox" id="inv-a" onchange="window.updateMapping()">反转</label>
+                <button id="cal-r-min" class="cal-btn" onclick="window.calibrateEndpoint('roll','min')">設Min</button>
+                <button id="cal-r-max" class="cal-btn" onclick="window.calibrateEndpoint('roll','max')">設Max</button>
+                <label class="chk-container"><input type="checkbox" id="inv-a" onchange="window.updateMapping()">反轉</label>
             </div>
             <div class="channel-row">
                 <div class="ch-info"><div class="ch-label" style="color:#88ff88">模式</div><select id="map-mode" onchange="window.updateMapping()"><option>...</option></select></div>

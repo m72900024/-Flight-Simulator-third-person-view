@@ -37,5 +37,13 @@ export const CONFIG = {
         pitch: 0,
         yaw: 0,
         thrust: 0
+    },
+
+    // 端點校正 (min/max)
+    endpoints: {
+        thrust: { min: -1, max: 1 },
+        yaw:    { min: -1, max: 1 },
+        pitch:  { min: -1, max: 1 },
+        roll:   { min: -1, max: 1 }
     }
 };

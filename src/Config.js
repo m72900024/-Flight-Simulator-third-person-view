@@ -5,17 +5,20 @@ export const FLIGHT_MODES = {
 };
 
 export const CONFIG = {
-    // 物理
+    // 物理 (模擬 5吋 FPV 無人機，約 600g)
     gravity: 9.81,
-    mass: 0.6,
+    mass: 0.6,          // kg
     maxThrust: 28.0,
-    dragCoeff: 0.05,
+    dragCoeff: 0.15,    // 空氣阻力 (↑ 更真實的減速)
+    angularDrag: 8.0,   // 角速度阻尼 (鬆桿後自然停轉)
     hardDeck: 0.05,
     
     // 手感
-    thrustPower: 35,
-    rates: 1.0,
-    maxTiltAngle: 45, // 自穩模式最大傾角 (度)
+    thrustPower: 30,    // 推力 (懸停約45%油門，推力比~5:1)
+    thrustExpo: 0.3,    // 油門指數曲線 (0=線性, 1=全指數)
+    rates: 1.2,         // 角速度倍率 (720 deg/s)
+    superRate: 0.7,     // 搖桿末端加速 (Betaflight style)
+    maxTiltAngle: 55,   // 自穩模式最大傾角 (度)
 
     // 預設映射
     axes: { 

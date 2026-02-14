@@ -5,10 +5,37 @@ export class InputController {
         this.state = { 
             t: 0, r: 0, p: 0, y: 0, 
             armed: false,
-            flightMode: FLIGHT_MODES.ANGLE // 預設自穩 (適合新手)
+            flightMode: FLIGHT_MODES.ANGLE
         };
         this.gamepadIndex = null;
-        
+        this.useKeyboard = false; // 鍵盤模式開關
+
+        // --- 鍵盤狀態 ---
+        this.keys = {};
+        this.keyThrottle = 0; // 油門需要累加，不是瞬間的
+
+        window.addEventListener('keydown', (e) => {
+            this.keys[e.code] = true;
+
+            // Space 切換解鎖
+            if (e.code === 'Space') {
+                this.state.armed = !this.state.armed;
+                e.preventDefault();
+            }
+            // 1/2/3 切換飛行模式
+            if (e.code === 'Digit1') this.state.flightMode = FLIGHT_MODES.ANGLE;
+            if (e.code === 'Digit2') this.state.flightMode = FLIGHT_MODES.HORIZON;
+            if (e.code === 'Digit3') this.state.flightMode = FLIGHT_MODES.ACRO;
+            // K 切換鍵盤/搖桿模式
+            if (e.code === 'KeyK') {
+                this.useKeyboard = !this.useKeyboard;
+                const msg = this.useKeyboard ? '⌨️ 鍵盤模式' : '🎮 搖桿模式';
+                window.dispatchEvent(new CustomEvent('input-mode-change', { detail: msg }));
+            }
+        });
+        window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
+
+        // --- 搖桿連接 ---
         window.addEventListener("gamepadconnected", (e) => {
             this.gamepadIndex = e.gamepad.index;
             window.dispatchEvent(new CustomEvent('gamepad-ready', { detail: { gamepad: e.gamepad } }));
@@ -20,91 +47,102 @@ export class InputController {
         if(newInverts) CONFIG.invert = newInverts;
     }
 
-    // [新增] 校正中點：當使用者按下「校正」按鈕時呼叫
     calibrateCenter() {
         const gp = navigator.getGamepads()[this.gamepadIndex];
         if(!gp) return;
-
-        // 記錄當前搖桿位置作為「零點」
-        // 注意：油門通常不需要中點校正，只要校正 R/P/Y
         CONFIG.calibration.roll = gp.axes[CONFIG.axes.roll] || 0;
         CONFIG.calibration.pitch = gp.axes[CONFIG.axes.pitch] || 0;
         CONFIG.calibration.yaw = gp.axes[CONFIG.axes.yaw] || 0;
-
         alert("校正完成！請確認搖桿回中後再試。");
     }
 
-    // 校正端點 (最小值)
     calibrateMin(channel) {
         const gp = navigator.getGamepads()[this.gamepadIndex];
         if(!gp) return;
-
         const axisIdx = CONFIG.axes[channel];
         if(axisIdx === undefined) return;
-
-        const val = gp.axes[axisIdx] || 0;
-        CONFIG.endpoints[channel].min = val;
+        CONFIG.endpoints[channel].min = gp.axes[axisIdx] || 0;
     }
 
-    // 校正端點 (最大值)
     calibrateMax(channel) {
         const gp = navigator.getGamepads()[this.gamepadIndex];
         if(!gp) return;
-
         const axisIdx = CONFIG.axes[channel];
         if(axisIdx === undefined) return;
-
-        const val = gp.axes[axisIdx] || 0;
-        CONFIG.endpoints[channel].max = val;
+        CONFIG.endpoints[channel].max = gp.axes[axisIdx] || 0;
     }
 
-    // 將原始值映射到校正後的範圍
     mapToRange(val, min, max) {
-        // 避免除以零
         if(max === min) return 0;
-        // 映射到 [-1, 1]
         return ((val - min) / (max - min)) * 2 - 1;
     }
 
-    update() {
+    // --- 鍵盤輸入更新 ---
+    updateKeyboard() {
+        const k = this.keys;
+        const rampSpeed = 0.02; // 油門變化速度
+
+        // W/S 油門升降（累加式，像真的油門桿）
+        if (k['KeyW']) this.keyThrottle = Math.min(1, this.keyThrottle + rampSpeed);
+        if (k['KeyS']) this.keyThrottle = Math.max(0, this.keyThrottle - rampSpeed);
+        this.state.t = this.keyThrottle;
+
+        // 方向鍵：俯仰/橫滾（按住有值，放開回零）
+        let pitch = 0, roll = 0, yaw = 0;
+        if (k['ArrowUp'])    pitch =  0.6;
+        if (k['ArrowDown'])  pitch = -0.6;
+        if (k['ArrowLeft'])  roll  = -0.6;
+        if (k['ArrowRight']) roll  =  0.6;
+
+        // A/D 轉向
+        if (k['KeyA']) yaw = -0.6;
+        if (k['KeyD']) yaw =  0.6;
+
+        // Shift 加速（按住全量）
+        if (k['ShiftLeft'] || k['ShiftRight']) {
+            pitch *= 1.6;
+            roll *= 1.6;
+            yaw *= 1.6;
+        }
+
+        // 限制範圍
+        this.state.p = Math.max(-1, Math.min(1, pitch));
+        this.state.r = Math.max(-1, Math.min(1, roll));
+        this.state.y = Math.max(-1, Math.min(1, yaw));
+
+        return this.state;
+    }
+
+    // --- 搖桿輸入更新 ---
+    updateGamepad() {
         const gamepads = navigator.getGamepads();
         if (this.gamepadIndex === null || !gamepads[this.gamepadIndex]) return this.state;
 
         const gp = gamepads[this.gamepadIndex];
         const ax = CONFIG.axes;
         const inv = CONFIG.invert;
-        const cal = CONFIG.calibration; // 讀取校正值
+        const cal = CONFIG.calibration;
+        const ep = CONFIG.endpoints;
 
-        // 讀取並扣除校正偏移量 (加入端點校正)
         const readAxis = (idx, invert, offset = 0, channel = null) => {
             if (idx === undefined || idx === null) return 0;
             let val = gp.axes[idx] || 0;
-
-            // 端點校正：映射到 [-1, 1]
             if (channel && ep[channel]) {
                 val = this.mapToRange(val, ep[channel].min, ep[channel].max);
             }
-
-            // 扣除中點偏移
             val = val - offset;
-
-            // 限制範圍
             val = Math.max(-1, Math.min(1, val));
-
-            if (Math.abs(val) < 0.05) val = 0; // 死區
+            if (Math.abs(val) < 0.05) val = 0;
             return invert ? -val : val;
         };
 
-        // 油門 (使用端點校正)
-        const ep = CONFIG.endpoints;
+        // 油門
         let rawThr = gp.axes[ax.thrust] || 0;
-        // 先映射到校正後的 [-1, 1] 範圍
         let mappedThr = this.mapToRange(rawThr, ep.thrust.min, ep.thrust.max);
         if (inv.t) mappedThr = -mappedThr;
-        this.state.t = (mappedThr + 1) / 2;
-        this.state.t = Math.max(0, Math.min(1, this.state.t));
+        this.state.t = Math.max(0, Math.min(1, (mappedThr + 1) / 2));
 
-        // 姿態 (傳入校正值與通道名稱)
+        // 姿態
         this.state.r = readAxis(ax.roll, inv.a, cal.roll, 'roll');
         this.state.p = readAxis(ax.pitch, inv.e, cal.pitch, 'pitch');
         this.state.y = readAxis(ax.yaw, inv.r, cal.yaw, 'yaw');
@@ -113,19 +151,20 @@ export class InputController {
         const armVal = gp.axes[ax.arm] || -1;
         this.state.armed = armVal > 0.5;
 
-        // [新增] 模式切換邏輯 (三段開關)
-        // -1.0 ~ -0.3 : Angle (自穩)
-        // -0.3 ~  0.3 : Horizon (半自穩)
-        //  0.3 ~  1.0 : Acro (手動)
+        // 模式切換（三段開關）
         const modeVal = gp.axes[ax.mode] || -1; 
-        if (modeVal < -0.3) {
-            this.state.flightMode = FLIGHT_MODES.ANGLE;
-        } else if (modeVal > 0.3) {
-            this.state.flightMode = FLIGHT_MODES.ACRO;
-        } else {
-            this.state.flightMode = FLIGHT_MODES.HORIZON;
-        }
+        if (modeVal < -0.3) this.state.flightMode = FLIGHT_MODES.ANGLE;
+        else if (modeVal > 0.3) this.state.flightMode = FLIGHT_MODES.ACRO;
+        else this.state.flightMode = FLIGHT_MODES.HORIZON;
 
         return this.state;
+    }
+
+    update() {
+        if (this.useKeyboard) {
+            return this.updateKeyboard();
+        } else {
+            return this.updateGamepad();
+        }
     }
 }

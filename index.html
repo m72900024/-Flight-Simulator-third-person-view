@@ -50,7 +50,12 @@
 
     <div id="ui-layer" style="display:none;">
         <div id="hud-top">
-            <div id="stat-thr">THR: 0%</div>
+            <div style="text-align:left;">
+                <div id="stat-thr">THR: 0%</div>
+                <div id="stat-mode" style="font-size:12px; color:#88ff88;">MODE: ANGLE</div>
+                <div id="stat-input" style="font-size:11px; color:#aaa;">⌨️ 鍵盤</div>
+                <div id="stat-armed" style="font-size:12px; color:#ff3333;">DISARMED</div>
+            </div>
             <div id="center-info">
                 <div id="level-title">LEVEL 1</div>
                 <div id="instruction">任務目標載入中...</div>
@@ -123,7 +128,21 @@
                 <div id="txt-arm" style="flex:1; font-weight:bold; color:#ff3333; font-size: 14px; text-align:right;">未解鎖</div>
             </div>
 
-            <button class="start-btn" onclick="window.startGameApp()">確認並起飛</button>
+            <div style="margin-top:15px; padding:10px; background:#1a2a1a; border:1px solid #4a4; border-radius:8px;">
+                <div style="font-size:13px; color:#88ff88; margin-bottom:8px;">⌨️ 鍵盤控制（按 K 切換）</div>
+                <div style="font-size:11px; color:#aaa; text-align:left; line-height:1.8;">
+                    <b>W / S</b> — 油門升降 &nbsp;&nbsp;
+                    <b>A / D</b> — 轉向 (Yaw)<br>
+                    <b>↑ / ↓</b> — 俯仰 (Pitch) &nbsp;&nbsp;
+                    <b>← / →</b> — 橫滾 (Roll)<br>
+                    <b>Space</b> — 解鎖/鎖定 &nbsp;&nbsp;
+                    <b>1/2/3</b> — 切模式 &nbsp;&nbsp;
+                    <b>Shift</b> — 加速
+                </div>
+                <button class="start-btn" style="margin-top:10px; padding:8px 30px; font-size:14px; background:linear-gradient(to right, #44aa44, #88ff88);" 
+                    onclick="window.startKeyboard()">⌨️ 鍵盤模式起飛</button>
+            </div>
+            <button class="start-btn" onclick="window.startGameApp()">🎮 搖桿模式起飛</button>
         </div>
     </div>
 

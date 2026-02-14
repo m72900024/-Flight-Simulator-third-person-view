@@ -97,6 +97,12 @@ window.calibrateEndpoint = function(channel, type) {
     }
 };
 
+window.startKeyboard = function() {
+    input.useKeyboard = true;
+    input.state.armed = true; // 鍵盤模式預設解鎖
+    window.startGameApp();
+};
+
 window.startGameApp = function() {
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('ui-layer').style.display = 'flex';
@@ -185,6 +191,20 @@ function animate() {
 
         document.getElementById('stat-thr').innerText = `THR: ${Math.round(inputState.t * 100)}%`;
         document.getElementById('stat-time').innerText = clock.getElapsedTime().toFixed(1) + 's';
+        
+        // HUD 狀態更新
+        const modeNames = { [FLIGHT_MODES.ANGLE]: 'ANGLE', [FLIGHT_MODES.HORIZON]: 'HORIZON', [FLIGHT_MODES.ACRO]: 'ACRO' };
+        const modeEl = document.getElementById('stat-mode');
+        if (modeEl) modeEl.innerText = `MODE: ${modeNames[inputState.flightMode] || '?'}`;
+        
+        const armedEl = document.getElementById('stat-armed');
+        if (armedEl) {
+            armedEl.innerText = inputState.armed ? 'ARMED' : 'DISARMED';
+            armedEl.style.color = inputState.armed ? '#00ff00' : '#ff3333';
+        }
+        
+        const inputEl = document.getElementById('stat-input');
+        if (inputEl) inputEl.innerText = input.useKeyboard ? '⌨️ 鍵盤 (K切換)' : '🎮 搖桿 (K切換)';
         gameScene.render();
     }
 }

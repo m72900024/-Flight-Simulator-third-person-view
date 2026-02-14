@@ -205,6 +205,21 @@ function animate() {
         
         const inputEl = document.getElementById('stat-input');
         if (inputEl) inputEl.innerText = input.useKeyboard ? '⌨️ 鍵盤 (K切換)' : '🎮 搖桿 (K切換)';
+        
+        // 高度顯示與警告
+        const altEl = document.getElementById('stat-alt');
+        if (altEl) {
+            const alt = physics.pos.y.toFixed(1);
+            altEl.innerText = `ALT: ${alt}m`;
+            if (physics.pos.y > CONFIG.maxHeight * 0.8) {
+                altEl.style.color = '#ff3333';
+                altEl.innerText += ' ⚠️ 太高了！';
+            } else if (physics.pos.y > CONFIG.maxHeight * 0.5) {
+                altEl.style.color = '#ffaa00';
+            } else {
+                altEl.style.color = '#aaa';
+            }
+        }
         gameScene.render();
     }
 }

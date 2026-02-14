@@ -136,14 +136,19 @@ export class PhysicsEngine {
             }
         }
 
-        // 統一正規化，防止數值漂移
+        // ACRO 模式：套用旋轉（只在這裡做一次）
         if (input.flightMode === FLIGHT_MODES.ACRO) {
-             const theta = this.rotVel.length() * dt;
+            const theta = this.rotVel.length() * dt;
             if (theta > 0.0001) {
                 const axis = this.rotVel.clone().normalize();
                 const qStep = new THREE.Quaternion().setFromAxisAngle(axis, theta);
                 this.quat.multiply(qStep);
             }
+        }
+
+        // 高度軟限制（超過最大高度後推力遞減）
+        if (this.pos.y > CONFIG.maxHeight) {
+            this.vel.y *= 0.95; // 逐漸減速
         }
         
         this.quat.normalize();

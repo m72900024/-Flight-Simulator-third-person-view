@@ -177,8 +177,6 @@ export class GameScene {
     updateDrone(pos, quat, throttle) {
         this.droneGroup.position.copy(pos);
         this.droneGroup.quaternion.copy(quat);
-        const speed = 0.5 + throttle * 1.5;
-        this.propellers.forEach(p => p.rotation.y += speed * p.userData.dir);
 
         // 螺旋槳效果：轉速越快，槳葉消失、圓盤出現
         this.propellers.forEach(pg => {

@@ -12,9 +12,10 @@ export const CONFIG = {
     dragCoeff: 0.15,    // 空氣阻力 (↑ 更真實的減速)
     angularDrag: 8.0,   // 角速度阻尼 (鬆桿後自然停轉)
     hardDeck: 0.05,
+    maxHeight: 30,      // LOS 飛行最大合理高度 (超過會有警告)
     
     // 手感
-    thrustPower: 30,    // 推力 (懸停約45%油門，推力比~5:1)
+    thrustPower: 18,    // 推力 (懸停約55%油門，更溫和可控)
     thrustExpo: 0.3,    // 油門指數曲線 (0=線性, 1=全指數)
     rates: 1.2,         // 角速度倍率 (720 deg/s)
     superRate: 0.7,     // 搖桿末端加速 (Betaflight style)

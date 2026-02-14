@@ -14,7 +14,7 @@ export class InputController {
         this.keys = {};
         this.keyThrottle = 0; // 油門需要累加，不是瞬間的
 
-        window.addEventListener('keydown', (e) => {
+        const onKey = (e) => {
             this.keys[e.code] = true;
 
             // Space 切換解鎖
@@ -32,7 +32,8 @@ export class InputController {
                 const msg = this.useKeyboard ? '⌨️ 鍵盤模式' : '🎮 搖桿模式';
                 window.dispatchEvent(new CustomEvent('input-mode-change', { detail: msg }));
             }
-        });
+        };
+        window.addEventListener('keydown', onKey);
         window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });
 
         // --- 搖桿連接 ---
@@ -80,7 +81,7 @@ export class InputController {
     // --- 鍵盤輸入更新 ---
     updateKeyboard() {
         const k = this.keys;
-        const rampSpeed = 0.02; // 油門變化速度
+        const rampSpeed = 0.008; // 油門變化速度（慢一點，更精確）
 
         // W/S 油門升降（累加式，像真的油門桿）
         if (k['KeyW']) this.keyThrottle = Math.min(1, this.keyThrottle + rampSpeed);

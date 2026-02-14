@@ -81,11 +81,15 @@ export class InputController {
     // --- 鍵盤輸入更新 ---
     updateKeyboard() {
         const k = this.keys;
-        const rampSpeed = 0.008; // 油門變化速度（慢一點，更精確）
 
-        // W/S 油門升降（累加式，像真的油門桿）
-        if (k['KeyW']) this.keyThrottle = Math.min(1, this.keyThrottle + rampSpeed);
-        if (k['KeyS']) this.keyThrottle = Math.max(0, this.keyThrottle - rampSpeed);
+        // W 按住就飛（固定油門60%），放開就降（油門歸零，自然落下）
+        if (k['KeyW']) {
+            this.keyThrottle = Math.min(1, this.keyThrottle + 0.05); // 快速升到目標
+        } else {
+            this.keyThrottle = Math.max(0, this.keyThrottle - 0.03); // 放開慢慢降
+        }
+        // S 可以加速下降
+        if (k['KeyS']) this.keyThrottle = Math.max(0, this.keyThrottle - 0.06);
         this.state.t = this.keyThrottle;
 
         // 方向鍵：俯仰/橫滾（按住有值，放開回零）

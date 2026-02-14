@@ -5,8 +5,11 @@ export class GameScene {
         this.scene.fog = new THREE.FogExp2(0x87CEEB, 0.005);
 
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        this.camera.position.set(0, 2, 6);
+        // LOS 目視飛行：相機在飛手眼睛位置（固定站立點）
+        this.pilotEyePos = new THREE.Vector3(0, 1.6, 6);
+        this.camera.position.copy(this.pilotEyePos);
         this.camera.lookAt(0, 1, 0);
+        this.cameraLookTarget = new THREE.Vector3(0, 1, 0); // 平滑追蹤用
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -76,6 +79,10 @@ export class GameScene {
         this.droneGroup.quaternion.copy(quat);
         const speed = 0.5 + throttle * 1.5;
         this.propellers.forEach(p => p.rotation.y += speed * p.userData.dir);
+
+        // LOS 目視飛行：眼睛平滑跟隨無人機
+        this.cameraLookTarget.lerp(pos, 0.1);
+        this.camera.lookAt(this.cameraLookTarget);
     }
 
     render() {

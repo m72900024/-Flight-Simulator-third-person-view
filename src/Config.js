@@ -9,7 +9,7 @@ export const CONFIG = {
     gravity: 9.81,
     mass: 0.6,          // kg
     maxThrust: 28.0,
-    dragCoeff: 0.15,    // 空氣阻力 (↑ 更真實的減速)
+    dragCoeff: 0.04,    // 空氣阻力 (終端速度約12m/s，接近真機)
     angularDrag: 8.0,   // 角速度阻尼 (鬆桿後自然停轉)
     hardDeck: 0.05,
     maxHeight: 30,      // LOS 飛行最大合理高度 (超過會有警告)

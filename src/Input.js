@@ -33,6 +33,10 @@ export class InputController {
                 const msg = this.useKeyboard ? '⌨️ 鍵盤模式' : '🎮 搖桿模式';
                 window.dispatchEvent(new CustomEvent('input-mode-change', { detail: msg }));
             }
+            // R 重置無人機
+            if (e.code === 'KeyR') {
+                window.dispatchEvent(new Event('reset-drone'));
+            }
         };
         window.addEventListener('keydown', onKey);
         window.addEventListener('keyup', (e) => { this.keys[e.code] = false; });

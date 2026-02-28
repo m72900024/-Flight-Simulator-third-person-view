@@ -235,7 +235,7 @@ export class LevelManager {
             pFill.style.width = Math.min(100, this.timer / 3 * 100) + '%';
             if (this.timer >= 3) this._complete();
 
-        } else if (L >= 3 && L <= 5 || L === 8) {
+        } else if ((L >= 3 && L <= 5) || L === 8) {
             const wp = this.waypoints[this.wpIndex];
             const dist = dronePos.distanceTo(new THREE.Vector3(...wp));
             if (dist < 1.8) {

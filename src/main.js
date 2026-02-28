@@ -77,8 +77,10 @@ function showLevelSelect() {
     const grid = document.getElementById('level-grid');
     grid.innerHTML = '';
     const bestTimes = JSON.parse(localStorage.getItem('flightSimBest') || '{}');
+    const unlockedLevel = LevelManager.getUnlockedLevel();
     CONFIG.levels.forEach(lv => {
         const best = bestTimes['L' + lv.id];
+        const locked = lv.id > unlockedLevel;
         const div = document.createElement('div');
         div.className = 'level-card';
         div.innerHTML = `
@@ -87,7 +89,12 @@ function showLevelSelect() {
             <div class="level-desc">${lv.desc}</div>
             <div class="level-best">${best ? '✅ ' + best + 's' : '🔒'}</div>
         `;
-        div.onclick = () => { selectedLevel = lv.id; startGame(); };
+        if (locked) {
+            div.style.opacity = '0.4';
+            div.style.cursor = 'not-allowed';
+        } else {
+            div.onclick = () => { selectedLevel = lv.id; startGame(); };
+        }
         grid.appendChild(div);
     });
 }
@@ -176,7 +183,7 @@ function animate() {
         const dt = Math.min(clock.getDelta(), 0.1);
         const inp = input.update();
         physics.update(dt, inp);
-        gameScene.updateDrone(physics.pos, physics.quat, inp.t);
+        gameScene.updateDrone(physics.pos, physics.quat, inp.t, physics.crashIntensity);
         levelManager.checkWinCondition(physics.pos, dt);
 
         document.getElementById('stat-thr').innerText = `THR: ${Math.round(inp.t*100)}%`;

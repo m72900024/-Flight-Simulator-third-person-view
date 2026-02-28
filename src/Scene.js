@@ -9,6 +9,7 @@ export class GameScene {
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 500);
         this.camera.position.set(0, 2.5, 10);
         this.cameraTarget = new THREE.Vector3(0, 1, 0);
+        this.cameraY = 2.5;
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -201,7 +202,7 @@ export class GameScene {
         this.scene.add(this.droneGroup);
     }
 
-    updateDrone(pos, quat, throttle) {
+    updateDrone(pos, quat, throttle, crashIntensity = 0) {
         this.droneGroup.position.copy(pos);
         this.droneGroup.quaternion.copy(quat);
         for(const pg of this.propellers){
@@ -215,8 +216,22 @@ export class GameScene {
 
         // LOS 第三人稱 — 飛手站在 z=8 看飛機
         this.cameraTarget.lerp(pos, 0.08);
-        this.camera.position.set(0, 2.5, 10);
+        this.cameraY = THREE.MathUtils.lerp(this.cameraY, pos.y + 1, 0.05);
+        let camX = 0, camY = this.cameraY, camZ = 10;
+
+        // Crash shake
+        if (crashIntensity > 0.01) {
+            camX += (Math.random() - 0.5) * crashIntensity * 0.3;
+            camY += (Math.random() - 0.5) * crashIntensity * 0.3;
+            camZ += (Math.random() - 0.5) * crashIntensity * 0.3;
+        }
+
+        this.camera.position.set(camX, camY, camZ);
         this.camera.lookAt(this.cameraTarget);
+
+        // Crash overlay
+        const overlay = document.getElementById('crash-overlay');
+        if (overlay) overlay.style.opacity = crashIntensity > 0.01 ? crashIntensity * 0.5 : 0;
     }
 
     render() { this.renderer.render(this.scene, this.camera); }

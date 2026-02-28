@@ -268,9 +268,21 @@ export class LevelManager {
         }
     }
 
+    static getUnlockedLevel() {
+        return parseInt(localStorage.getItem('flightSimUnlocked') || '1');
+    }
+
+    static setUnlockedLevel(level) {
+        const current = LevelManager.getUnlockedLevel();
+        if (level > current) localStorage.setItem('flightSimUnlocked', String(level));
+    }
+
     _complete() {
         this.isComplete = true;
         this.saveBest(this.currentLevel, this.elapsed);
+        // Unlock next level
+        LevelManager.setUnlockedLevel(this.currentLevel + 1);
+
         document.getElementById('msg-overlay').style.display = 'block';
         document.getElementById('msg-time').innerText = `用時: ${this.elapsed.toFixed(1)}s`;
         const best = this.getBest(this.currentLevel);

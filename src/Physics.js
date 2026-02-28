@@ -6,6 +6,7 @@ export class PhysicsEngine {
         this.vel = new THREE.Vector3(0, 0, 0);
         this.quat = new THREE.Quaternion();
         this.rotVel = new THREE.Vector3(0, 0, 0); // 角速度
+        this.crashIntensity = 0;
     }
 
     reset() {
@@ -13,6 +14,7 @@ export class PhysicsEngine {
         this.vel.set(0, 0, 0);
         this.rotVel.set(0, 0, 0);
         this.quat.identity();
+        this.crashIntensity = 0;
     }
 
     update(dt, input) {
@@ -41,11 +43,16 @@ export class PhysicsEngine {
         this.vel.add(accel.multiplyScalar(dt));
         this.pos.add(this.vel.clone().multiplyScalar(dt));
 
+        // Decay crash intensity each frame
+        this.crashIntensity *= 0.92;
+
         // 地板碰撞 (更真實的彈跳)
         if (this.pos.y < CONFIG.hardDeck) {
             this.pos.y = CONFIG.hardDeck;
             if (this.vel.y < -2) {
                 // 高速撞地 → 彈跳 + 大幅減速（模擬炸機）
+                const impactSpeed = Math.abs(this.vel.y);
+                this.crashIntensity = Math.min(1.0, impactSpeed * 0.15);
                 this.vel.y *= -0.3;
                 this.vel.x *= 0.3; this.vel.z *= 0.3;
                 // 撞擊造成隨機旋轉

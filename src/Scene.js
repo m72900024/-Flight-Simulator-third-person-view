@@ -9,7 +9,6 @@ export class GameScene {
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 500);
         this.camera.position.set(0, 2.5, 10);
         this.cameraTarget = new THREE.Vector3(0, 1, 0);
-        this.cameraY = 2.5;
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -59,7 +58,6 @@ export class GameScene {
         this.scene.add(grid);
 
         this._createLandingPad();
-        this._createPilot();
         this._createTrees();
         this._createBuildings();
         this._createFence();
@@ -87,17 +85,6 @@ export class GameScene {
             m.rotation.x = -Math.PI/2; m.position.set(b.x, 0.04, b.z);
             this.scene.add(m);
         });
-    }
-
-    _createPilot() {
-        const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.4, 0.3),
-            new THREE.MeshStandardMaterial({ color: 0x2266cc }));
-        body.position.set(0, 0.7, 8); body.castShadow = true;
-        this.scene.add(body);
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8),
-            new THREE.MeshStandardMaterial({ color: 0xffcc99 }));
-        head.position.set(0, 1.6, 8); head.castShadow = true;
-        this.scene.add(head);
     }
 
     _createTrees() {
@@ -214,10 +201,9 @@ export class GameScene {
         }
         if(this.ledMesh) this.ledMesh.material.color.setHex((Date.now()&256)?0x00ff00:0x002200);
 
-        // LOS 第三人稱 — 飛手站在 z=8 看飛機
+        // LOS 第三人稱 — 飛手站在地面定點看飛機
         this.cameraTarget.lerp(pos, 0.08);
-        this.cameraY = THREE.MathUtils.lerp(this.cameraY, pos.y + 1, 0.05);
-        let camX = 0, camY = this.cameraY, camZ = 10;
+        let camX = 0, camY = 2.5, camZ = 10;
 
         // Crash shake
         if (crashIntensity > 0.01) {

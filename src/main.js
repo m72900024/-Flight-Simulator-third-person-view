@@ -151,7 +151,7 @@ function updateSetupUI() {
     armTxt.innerText = state.armed ? '已解鎖' : '未解鎖';
     armTxt.style.color = state.armed ? '#00ffcc' : '#ff3333';
 
-    const mStr = {[FLIGHT_MODES.ANGLE]:'ANGLE',[FLIGHT_MODES.HORIZON]:'HORIZON',[FLIGHT_MODES.ACRO]:'ACRO'}[state.flightMode]||'?';
+    const mStr = {[FLIGHT_MODES.ANGLE]:'ANGLE',[FLIGHT_MODES.HORIZON]:'HORIZON',[FLIGHT_MODES.ACRO]:'ACRO',[FLIGHT_MODES.ALT_HOLD]:'ALT HOLD'}[state.flightMode]||'?';
     document.getElementById('mode-display').innerText = mStr;
     document.getElementById('txt-mode').innerText = mStr;
 }
@@ -189,7 +189,7 @@ function animate() {
         document.getElementById('stat-thr').innerText = `THR: ${Math.round(inp.t*100)}%`;
         document.getElementById('stat-alt').innerText = `ALT: ${physics.pos.y.toFixed(1)}m`;
 
-        const modeNames = {[FLIGHT_MODES.ANGLE]:'ANGLE',[FLIGHT_MODES.HORIZON]:'HORIZON',[FLIGHT_MODES.ACRO]:'ACRO'};
+        const modeNames = {[FLIGHT_MODES.ANGLE]:'ANGLE',[FLIGHT_MODES.HORIZON]:'HORIZON',[FLIGHT_MODES.ACRO]:'ACRO',[FLIGHT_MODES.ALT_HOLD]:'ALT HOLD'};
         document.getElementById('stat-mode').innerText = 'MODE: '+(modeNames[inp.flightMode]||'?');
         document.getElementById('stat-armed').innerText = inp.armed ? 'ARMED' : 'DISARMED';
         document.getElementById('stat-armed').style.color = inp.armed ? '#00ff00' : '#ff3333';

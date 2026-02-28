@@ -24,11 +24,29 @@ export class PhysicsEngine {
         const tLin = input.t;
         const tExp = Math.pow(input.t, 3);
         const tCurve = tLin * (1 - expo) + tExp * expo;
-        
-        const thrustMag = input.armed ? (tCurve * CONFIG.thrustPower) : 0;
+
+        let thrustMag = input.armed ? (tCurve * CONFIG.thrustPower) : 0;
+
+        // ALT_HOLD: override thrust to maintain altitude when throttle is centered
+        if (input.flightMode === FLIGHT_MODES.ALT_HOLD && input.armed) {
+            const hoverThrust = CONFIG.mass * CONFIG.gravity;
+            if (input.t >= 0.4 && input.t <= 0.6) {
+                // Deadzone: counteract gravity exactly + damp vertical velocity
+                thrustMag = hoverThrust - this.vel.y * CONFIG.mass * 5;
+            } else if (input.t > 0.6) {
+                // Climb: hover thrust + extra proportional to stick above deadzone
+                const climbInput = (input.t - 0.6) / 0.4; // 0..1
+                thrustMag = hoverThrust + climbInput * CONFIG.thrustPower * 0.5;
+            } else {
+                // Descend: hover thrust - reduction proportional to stick below deadzone
+                const descendInput = (0.4 - input.t) / 0.4; // 0..1
+                thrustMag = hoverThrust * (1 - descendInput * 0.8);
+            }
+        }
+
         const thrustDir = new THREE.Vector3(0, 1, 0).applyQuaternion(this.quat);
         const force = thrustDir.multiplyScalar(thrustMag);
-        
+
         // 重力
         force.y -= CONFIG.mass * CONFIG.gravity;
         
@@ -106,6 +124,24 @@ export class PhysicsEngine {
             this.quat.premultiply(qYaw);
             
             this.rotVel.set(0,0,0); // 自穩時不累積物理角速度
+
+        } else if (input.flightMode === FLIGHT_MODES.ALT_HOLD) {
+            // [定高模式] 姿態控制與 ANGLE 模式相同（自穩）
+            const maxTilt = THREE.MathUtils.degToRad(CONFIG.maxTiltAngle);
+            const targetPitch = input.p * maxTilt;
+            const targetRoll = -input.r * maxTilt;
+
+            const euler = new THREE.Euler().setFromQuaternion(this.quat, 'YXZ');
+            const targetEuler = new THREE.Euler(targetPitch, euler.y, targetRoll, 'YXZ');
+            const targetQuat = new THREE.Quaternion().setFromEuler(targetEuler);
+
+            this.quat.slerp(targetQuat, 5.0 * dt);
+
+            const yawRate = input.y * maxRate * 0.5;
+            const qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), yawRate * dt);
+            this.quat.premultiply(qYaw);
+
+            this.rotVel.set(0,0,0);
 
         } else if (input.flightMode === FLIGHT_MODES.HORIZON) {
             // [半自穩模式] 混合邏輯

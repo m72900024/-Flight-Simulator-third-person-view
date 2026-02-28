@@ -26,6 +26,7 @@ export class InputController {
             if (e.code === 'Digit1') this.state.flightMode = FLIGHT_MODES.ANGLE;
             if (e.code === 'Digit2') this.state.flightMode = FLIGHT_MODES.HORIZON;
             if (e.code === 'Digit3') this.state.flightMode = FLIGHT_MODES.ACRO;
+            if (e.code === 'Digit4') this.state.flightMode = FLIGHT_MODES.ALT_HOLD;
             // K 切換鍵盤/搖桿模式
             if (e.code === 'KeyK') {
                 this.useKeyboard = !this.useKeyboard;
@@ -157,11 +158,12 @@ export class InputController {
         const armVal = gp.axes[ax.arm] || -1;
         this.state.armed = armVal > 0.5;
 
-        // 模式切換（三段開關）
-        const modeVal = gp.axes[ax.mode] || -1; 
-        if (modeVal < -0.3) this.state.flightMode = FLIGHT_MODES.ANGLE;
-        else if (modeVal > 0.3) this.state.flightMode = FLIGHT_MODES.ACRO;
-        else this.state.flightMode = FLIGHT_MODES.HORIZON;
+        // 模式切換（四段開關）
+        const modeVal = gp.axes[ax.mode] || -1;
+        if (modeVal < -0.5) this.state.flightMode = FLIGHT_MODES.ANGLE;
+        else if (modeVal < 0) this.state.flightMode = FLIGHT_MODES.HORIZON;
+        else if (modeVal < 0.5) this.state.flightMode = FLIGHT_MODES.ACRO;
+        else this.state.flightMode = FLIGHT_MODES.ALT_HOLD;
 
         return this.state;
     }

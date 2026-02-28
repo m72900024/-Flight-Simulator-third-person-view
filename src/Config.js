@@ -1,4 +1,4 @@
-export const FLIGHT_MODES = { ACRO: 0, ANGLE: 1, HORIZON: 2 };
+export const FLIGHT_MODES = { ACRO: 0, ANGLE: 1, HORIZON: 2, ALT_HOLD: 3 };
 
 export const CONFIG = {
     gravity: 9.81, mass: 0.6, maxThrust: 28.0, dragCoeff: 0.04,

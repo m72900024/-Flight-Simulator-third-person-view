@@ -7,41 +7,36 @@ import { CONFIG, FLIGHT_MODES } from './Config.js';
 const input = new InputController();
 let physics, gameScene, levelManager;
 const clock = new THREE.Clock();
-let appState = 'SETUP'; // SETUP | GAME
+let appState = 'SETUP';
 let isGamepadInit = false;
+let selectedLevel = 1;
 
-// 1. 初始化選單
+// --- 選單初始化 ---
 function initSelects(gamepad) {
-    if(isGamepadInit) return;
+    if (isGamepadInit) return;
     isGamepadInit = true;
-
-    document.getElementById('status-msg').innerText = `已連接: ${gamepad.id} (${gamepad.axes.length} 軸)`;
+    document.getElementById('status-msg').innerText = `已連接: ${gamepad.id}`;
     document.getElementById('status-msg').style.color = '#00ffcc';
 
-    // 建立監控區
     const monitor = document.getElementById('raw-monitor');
     monitor.innerHTML = '';
-    for(let i=0; i<gamepad.axes.length; i++) {
+    for (let i = 0; i < gamepad.axes.length; i++) {
         const div = document.createElement('div');
         div.className = 'raw-item';
         div.innerHTML = `Axis ${i} <div class="raw-bar-bg"><div id="raw-bar-${i}" class="raw-bar-fill"></div></div>`;
         monitor.appendChild(div);
     }
 
-    // 建立下拉選單 (包含 Mode)
-    const ids = ['map-t', 'map-r', 'map-e', 'map-a', 'map-arm', 'map-mode'];
+    const ids = ['map-t','map-r','map-e','map-a','map-arm','map-mode'];
     ids.forEach(id => {
         const sel = document.getElementById(id);
-        sel.innerHTML = ''; 
-        for(let i=0; i<gamepad.axes.length; i++) {
+        sel.innerHTML = '';
+        for (let i = 0; i < gamepad.axes.length; i++) {
             const opt = document.createElement('option');
-            opt.value = i;
-            opt.innerText = `Axis ${i}`;
+            opt.value = i; opt.innerText = `Axis ${i}`;
             sel.appendChild(opt);
         }
     });
-
-    // 讀取預設值
     document.getElementById('map-t').value = CONFIG.axes.thrust;
     document.getElementById('map-r').value = CONFIG.axes.yaw;
     document.getElementById('map-e').value = CONFIG.axes.pitch;
@@ -50,176 +45,155 @@ function initSelects(gamepad) {
     document.getElementById('map-mode').value = CONFIG.axes.mode;
 }
 
-// 2. 監聽搖桿連接
-window.addEventListener('gamepad-ready', (e) => {
-    initSelects(e.detail.gamepad);
-});
+window.addEventListener('gamepad-ready', (e) => initSelects(e.detail.gamepad));
 
-// 3. UI 互動函數
-window.updateMapping = function() {
-    const newAxes = {
+window.updateMapping = function () {
+    input.updateConfig({
         thrust: parseInt(document.getElementById('map-t').value),
         yaw: parseInt(document.getElementById('map-r').value),
         pitch: parseInt(document.getElementById('map-e').value),
         roll: parseInt(document.getElementById('map-a').value),
         arm: parseInt(document.getElementById('map-arm').value),
         mode: parseInt(document.getElementById('map-mode').value)
-    };
-    const newInverts = {
+    }, {
         t: document.getElementById('inv-t').checked,
         r: document.getElementById('inv-r').checked,
         e: document.getElementById('inv-e').checked,
         a: document.getElementById('inv-a').checked
-    };
-    input.updateConfig(newAxes, newInverts);
+    });
 };
 
-window.doCalibration = function() {
-    input.calibrateCenter();
+window.doCalibration = function () { input.calibrateCenter(); };
+window.calibrateEndpoint = function (ch, type) {
+    if (type === 'min') input.calibrateMin(ch); else input.calibrateMax(ch);
+    const btnMap = { thrust:'cal-t', yaw:'cal-y', pitch:'cal-p', roll:'cal-r' };
+    if (btnMap[ch]) document.getElementById(`${btnMap[ch]}-${type}`).classList.add('set');
 };
 
-// 端點校正
-window.calibrateEndpoint = function(channel, type) {
-    if(type === 'min') {
-        input.calibrateMin(channel);
-    } else {
-        input.calibrateMax(channel);
-    }
-    // 更新按鈕樣式表示已校正
-    const btnId = {
-        thrust: 'cal-t',
-        yaw: 'cal-y',
-        pitch: 'cal-p',
-        roll: 'cal-r'
-    }[channel];
-    if(btnId) {
-        document.getElementById(`${btnId}-${type}`).classList.add('set');
-    }
-};
-
-window.startKeyboard = function() {
-    input.useKeyboard = true;
-    input.state.armed = true; // 鍵盤模式預設解鎖
-    window.startGameApp();
-};
-
-window.startGameApp = function() {
+// --- 關卡選擇 ---
+function showLevelSelect() {
     document.getElementById('setup-screen').style.display = 'none';
+    document.getElementById('level-select').style.display = 'flex';
+    const grid = document.getElementById('level-grid');
+    grid.innerHTML = '';
+    const bestTimes = JSON.parse(localStorage.getItem('flightSimBest') || '{}');
+    CONFIG.levels.forEach(lv => {
+        const best = bestTimes['L' + lv.id];
+        const div = document.createElement('div');
+        div.className = 'level-card';
+        div.innerHTML = `
+            <div class="level-num">${lv.id}</div>
+            <div class="level-name">${lv.name}</div>
+            <div class="level-desc">${lv.desc}</div>
+            <div class="level-best">${best ? '✅ ' + best + 's' : '🔒'}</div>
+        `;
+        div.onclick = () => { selectedLevel = lv.id; startGame(); };
+        grid.appendChild(div);
+    });
+}
+
+window.startKeyboard = function () {
+    input.useKeyboard = true;
+    input.state.armed = true;
+    showLevelSelect();
+};
+
+window.startGameApp = function () { showLevelSelect(); };
+
+function startGame() {
+    document.getElementById('level-select').style.display = 'none';
     document.getElementById('ui-layer').style.display = 'flex';
-    
-    physics = new PhysicsEngine();
-    gameScene = new GameScene();
-    levelManager = new LevelManager(gameScene);
-    
+
+    if (!physics) {
+        physics = new PhysicsEngine();
+        gameScene = new GameScene();
+        levelManager = new LevelManager(gameScene);
+    }
     physics.reset();
-    levelManager.loadLevel(1);
-    
+    levelManager.loadLevel(selectedLevel);
     appState = 'GAME';
     clock.start();
-};
+}
 
-// 4. 更新設定介面
+// --- Setup UI 更新 ---
 function updateSetupUI() {
-    // 原始訊號
     const gamepads = navigator.getGamepads();
     let gp = null;
-    for(let g of gamepads) { if(g && g.connected) { gp = g; break; } }
-
-    if(gp) {
-        if(!isGamepadInit) initSelects(gp);
+    for (let g of gamepads) { if (g && g.connected) { gp = g; break; } }
+    if (gp) {
+        if (!isGamepadInit) initSelects(gp);
         gp.axes.forEach((val, i) => {
             const bar = document.getElementById(`raw-bar-${i}`);
-            if(bar) {
-                const pct = ((val + 1) / 2) * 100;
-                bar.style.width = pct + '%';
-                bar.style.backgroundColor = Math.abs(val)>0.1 ? '#00ff00' : '#ffff00';
+            if (bar) {
+                bar.style.width = ((val+1)/2)*100 + '%';
+                bar.style.backgroundColor = Math.abs(val) > 0.1 ? '#00ff00' : '#ffff00';
             }
         });
     }
-
-    // 校正後數值
     const state = input.update();
-    const setBar = (id, pct) => document.getElementById(id).style.width = pct + '%';
-    const setTxt = (id, txt) => document.getElementById(id).innerText = txt;
-
-    setBar('bar-thr', state.t * 100); setTxt('txt-thr', Math.round(state.t * 100) + '%');
-    setBar('bar-yaw', ((state.y + 1) / 2) * 100); setTxt('txt-yaw', state.y.toFixed(2));
-    setBar('bar-pit', ((state.p + 1) / 2) * 100); setTxt('txt-pit', state.p.toFixed(2));
-    setBar('bar-rol', ((state.r + 1) / 2) * 100); setTxt('txt-rol', state.r.toFixed(2));
+    document.getElementById('bar-thr').style.width = state.t*100+'%';
+    document.getElementById('txt-thr').innerText = Math.round(state.t*100)+'%';
+    document.getElementById('bar-yaw').style.width = ((state.y+1)/2)*100+'%';
+    document.getElementById('txt-yaw').innerText = state.y.toFixed(2);
+    document.getElementById('bar-pit').style.width = ((state.p+1)/2)*100+'%';
+    document.getElementById('txt-pit').innerText = state.p.toFixed(2);
+    document.getElementById('bar-rol').style.width = ((state.r+1)/2)*100+'%';
+    document.getElementById('txt-rol').innerText = state.r.toFixed(2);
 
     const armTxt = document.getElementById('txt-arm');
-    if(state.armed) {
-        armTxt.innerText = "已解鎖 (ARMED)"; armTxt.style.color = "#00ffcc";
-    } else {
-        armTxt.innerText = "未解鎖 (DISARMED)"; armTxt.style.color = "#ff3333";
-    }
+    armTxt.innerText = state.armed ? '已解鎖' : '未解鎖';
+    armTxt.style.color = state.armed ? '#00ffcc' : '#ff3333';
 
-    // 顯示當前模式
-    const modeTxt = document.getElementById('mode-display');
-    const modeChTxt = document.getElementById('txt-mode');
-    let mStr = "UNKNOWN";
-    if (state.flightMode === FLIGHT_MODES.ANGLE) mStr = "ANGLE (自穩)";
-    else if (state.flightMode === FLIGHT_MODES.HORIZON) mStr = "HORIZON (半自穩)";
-    else if (state.flightMode === FLIGHT_MODES.ACRO) mStr = "ACRO (手動)";
-    modeTxt.innerText = mStr;
-    modeChTxt.innerText = mStr;
+    const mStr = {[FLIGHT_MODES.ANGLE]:'ANGLE',[FLIGHT_MODES.HORIZON]:'HORIZON',[FLIGHT_MODES.ACRO]:'ACRO'}[state.flightMode]||'?';
+    document.getElementById('mode-display').innerText = mStr;
+    document.getElementById('txt-mode').innerText = mStr;
 }
 
-// 5. 主迴圈
+// --- ESC 返回 ---
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && appState === 'GAME') {
+        appState = 'SETUP';
+        document.getElementById('ui-layer').style.display = 'none';
+        document.getElementById('msg-overlay').style.display = 'none';
+        showLevelSelect();
+    }
+});
 window.addEventListener('resize', () => {
-    if(gameScene) {
+    if (gameScene) {
         gameScene.camera.aspect = window.innerWidth / window.innerHeight;
         gameScene.camera.updateProjectionMatrix();
         gameScene.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 });
-window.addEventListener('reset-drone', () => { if(physics) physics.reset(); });
+window.addEventListener('reset-drone', () => { if (physics) physics.reset(); });
 
+// --- 主迴圈 ---
 function animate() {
     requestAnimationFrame(animate);
-
     if (appState === 'SETUP') {
         updateSetupUI();
-    } 
-    else if (appState === 'GAME') {
+    } else if (appState === 'GAME') {
         const dt = Math.min(clock.getDelta(), 0.1);
-        const inputState = input.update();
-        
-        physics.update(dt, inputState);
-        gameScene.updateDrone(physics.pos, physics.quat, inputState.t);
+        const inp = input.update();
+        physics.update(dt, inp);
+        gameScene.updateDrone(physics.pos, physics.quat, inp.t);
         levelManager.checkWinCondition(physics.pos, dt);
 
-        document.getElementById('stat-thr').innerText = `THR: ${Math.round(inputState.t * 100)}%`;
-        document.getElementById('stat-time').innerText = clock.getElapsedTime().toFixed(1) + 's';
-        
-        // HUD 狀態更新
-        const modeNames = { [FLIGHT_MODES.ANGLE]: 'ANGLE', [FLIGHT_MODES.HORIZON]: 'HORIZON', [FLIGHT_MODES.ACRO]: 'ACRO' };
-        const modeEl = document.getElementById('stat-mode');
-        if (modeEl) modeEl.innerText = `MODE: ${modeNames[inputState.flightMode] || '?'}`;
-        
-        const armedEl = document.getElementById('stat-armed');
-        if (armedEl) {
-            armedEl.innerText = inputState.armed ? 'ARMED' : 'DISARMED';
-            armedEl.style.color = inputState.armed ? '#00ff00' : '#ff3333';
-        }
-        
-        const inputEl = document.getElementById('stat-input');
-        if (inputEl) inputEl.innerText = input.useKeyboard ? '⌨️ 鍵盤 (K切換)' : '🎮 搖桿 (K切換)';
-        
-        // 高度顯示與警告
+        document.getElementById('stat-thr').innerText = `THR: ${Math.round(inp.t*100)}%`;
+        document.getElementById('stat-alt').innerText = `ALT: ${physics.pos.y.toFixed(1)}m`;
+
+        const modeNames = {[FLIGHT_MODES.ANGLE]:'ANGLE',[FLIGHT_MODES.HORIZON]:'HORIZON',[FLIGHT_MODES.ACRO]:'ACRO'};
+        document.getElementById('stat-mode').innerText = 'MODE: '+(modeNames[inp.flightMode]||'?');
+        document.getElementById('stat-armed').innerText = inp.armed ? 'ARMED' : 'DISARMED';
+        document.getElementById('stat-armed').style.color = inp.armed ? '#00ff00' : '#ff3333';
+        document.getElementById('stat-input').innerText = input.useKeyboard ? '⌨️ 鍵盤' : '🎮 搖桿';
+
+        // 高度警告
         const altEl = document.getElementById('stat-alt');
-        if (altEl) {
-            const alt = physics.pos.y.toFixed(1);
-            altEl.innerText = `ALT: ${alt}m`;
-            if (physics.pos.y > CONFIG.maxHeight * 0.8) {
-                altEl.style.color = '#ff3333';
-                altEl.innerText += ' ⚠️ 太高了！';
-            } else if (physics.pos.y > CONFIG.maxHeight * 0.5) {
-                altEl.style.color = '#ffaa00';
-            } else {
-                altEl.style.color = '#aaa';
-            }
-        }
+        if (physics.pos.y > CONFIG.maxHeight*0.8) { altEl.style.color='#ff3333'; altEl.innerText+=' ⚠️'; }
+        else if (physics.pos.y > CONFIG.maxHeight*0.5) altEl.style.color='#ffaa00';
+        else altEl.style.color='#aaa';
+
         gameScene.render();
     }
 }

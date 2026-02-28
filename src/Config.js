@@ -1,53 +1,25 @@
-export const FLIGHT_MODES = {
-    ACRO: 0,    // 手動 (純角速度)
-    ANGLE: 1,   // 自穩 (限制角度)
-    HORIZON: 2  // 半自穩 (中間自穩，打到底變手動)
-};
+export const FLIGHT_MODES = { ACRO: 0, ANGLE: 1, HORIZON: 2 };
 
 export const CONFIG = {
-    // 物理 (模擬 5吋 FPV 無人機，約 600g)
-    gravity: 9.81,
-    mass: 0.6,          // kg
-    maxThrust: 28.0,
-    dragCoeff: 0.04,    // 空氣阻力 (終端速度約12m/s，接近真機)
-    angularDrag: 8.0,   // 角速度阻尼 (鬆桿後自然停轉)
-    hardDeck: 0.05,
-    maxHeight: 30,      // LOS 飛行最大合理高度 (超過會有警告)
-    
-    // 手感
-    thrustPower: 18,    // 推力 (懸停約55%油門，更溫和可控)
-    thrustExpo: 0.3,    // 油門指數曲線 (0=線性, 1=全指數)
-    rates: 1.2,         // 角速度倍率 (720 deg/s)
-    superRate: 0.7,     // 搖桿末端加速 (Betaflight style)
-    maxTiltAngle: 55,   // 自穩模式最大傾角 (度)
-
-    // 預設映射
-    axes: { 
-        thrust: 2, 
-        yaw: 0, 
-        pitch: 1, 
-        roll: 3, 
-        arm: 4,
-        mode: 5 // [新增] 用來切換模式的開關通道 (AUX)
-    },
-    
-    invert: {
-        t: false, r: false, e: true, a: false
-    },
-
-    // [新增] 校正資料 (中點偏移量)
-    calibration: {
-        roll: 0,
-        pitch: 0,
-        yaw: 0,
-        thrust: 0
-    },
-
-    // 端點校正 (min/max)
+    gravity: 9.81, mass: 0.6, maxThrust: 28.0, dragCoeff: 0.04,
+    angularDrag: 8.0, hardDeck: 0.05, maxHeight: 50,
+    thrustPower: 18, thrustExpo: 0.3, rates: 1.2, superRate: 0.7,
+    maxTiltAngle: 55, droneScale: 3.0,
+    axes: { thrust: 2, yaw: 0, pitch: 1, roll: 3, arm: 4, mode: 5 },
+    invert: { t: false, r: false, e: true, a: false },
+    calibration: { roll: 0, pitch: 0, yaw: 0, thrust: 0 },
     endpoints: {
-        thrust: { min: -1, max: 1 },
-        yaw:    { min: -1, max: 1 },
-        pitch:  { min: -1, max: 1 },
-        roll:   { min: -1, max: 1 }
-    }
+        thrust: { min: -1, max: 1 }, yaw: { min: -1, max: 1 },
+        pitch: { min: -1, max: 1 }, roll: { min: -1, max: 1 }
+    },
+    levels: [
+        { id:1, name:'起飛定高', desc:'起飛到 2~3m 高度維持 3 秒' },
+        { id:2, name:'定點懸停', desc:'在綠色方框內懸停 3 秒' },
+        { id:3, name:'前後平移', desc:'飛到前方再飛回來' },
+        { id:4, name:'左右平移', desc:'飛到左方再到右方' },
+        { id:5, name:'矩形航線', desc:'依序通過 4 個航點' },
+        { id:6, name:'穿越拱門', desc:'穿越前方拱門' },
+        { id:7, name:'8字飛行', desc:'繞兩柱子畫 8 字' },
+        { id:8, name:'綜合挑戰', desc:'穿門+繞柱+降落' }
+    ]
 };

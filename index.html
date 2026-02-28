@@ -3,149 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LOS 飛行訓練 (ES6 專業版)</title>
+    <title>LOS 飛行訓練 Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; user-select: none; }
-        
+        body { margin:0; overflow:hidden; background:#000; font-family:'Segoe UI',sans-serif; user-select:none; }
+
         /* 設定畫面 */
-        #setup-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(20,20,20,0.95); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; overflow-y: auto; }
-        .setup-box { background: #1e1e1e; padding: 25px; border-radius: 12px; border: 1px solid #444; width: 90%; max-width: 600px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
-
+        #setup-screen { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(20,20,20,0.95); z-index:1000; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; overflow-y:auto; }
+        .setup-box { background:#1e1e1e; padding:25px; border-radius:12px; border:1px solid #444; width:90%; max-width:600px; text-align:center; box-shadow:0 0 30px rgba(0,0,0,0.8); max-height:95vh; overflow-y:auto; }
         .monitor-box { background:#111; padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid #333; }
-        .monitor-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:5px; }
-        .raw-item { background: #222; padding: 4px; border-radius: 4px; font-size: 10px; text-align: left; color: #aaa; }
-        .raw-bar-bg { width: 100%; height: 6px; background: #444; margin-top: 2px; border-radius: 3px; overflow: hidden; }
-        .raw-bar-fill { height: 100%; width: 50%; background: #ffff00; transition: width 0.05s; }
+        .monitor-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
+        .raw-item { background:#222; padding:4px; border-radius:4px; font-size:10px; text-align:left; color:#aaa; }
+        .raw-bar-bg { width:100%; height:6px; background:#444; margin-top:2px; border-radius:3px; overflow:hidden; }
+        .raw-bar-fill { height:100%; width:50%; background:#ffff00; transition:width 0.05s; }
+        .channel-row { display:flex; align-items:center; margin-bottom:8px; justify-content:space-between; background:#252525; padding:8px 10px; border-radius:6px; }
+        .ch-info { width:150px; text-align:left; display:flex; align-items:center; gap:5px; }
+        .ch-label { font-weight:bold; font-size:14px; color:#fff; width:40px; }
+        select { background:#333; color:#00ffcc; border:1px solid #555; padding:2px; border-radius:4px; font-size:12px; width:90px; cursor:pointer; }
+        .ch-bar-bg { flex:1; height:12px; background:#333; margin:0 10px; border-radius:6px; overflow:hidden; position:relative; border:1px solid #444; }
+        .ch-bar-fill { height:100%; background:#0099ff; width:50%; position:absolute; left:0; transition:width 0.05s; }
+        .ch-val { width:40px; text-align:right; font-family:monospace; font-size:12px; color:#aaa; }
+        .chk-container { display:flex; align-items:center; font-size:12px; color:#888; cursor:pointer; margin-left:10px; }
+        .cal-btn { background:#444; border:1px solid #666; color:#fff; padding:2px 6px; border-radius:3px; font-size:10px; cursor:pointer; margin-left:3px; }
+        .cal-btn:hover { background:#555; }
+        .cal-btn.set { background:#2a5a2a; border-color:#4a4; }
+        .start-btn { background:linear-gradient(to right,#0099ff,#00ffcc); border:none; padding:12px 50px; font-size:20px; font-weight:bold; color:#000; border-radius:50px; cursor:pointer; margin-top:20px; box-shadow:0 0 15px rgba(0,255,204,0.3); }
+        .start-btn:hover { filter:brightness(1.1); transform:scale(1.05); }
 
-        .channel-row { display: flex; align-items: center; margin-bottom: 8px; justify-content: space-between; background: #252525; padding: 8px 10px; border-radius: 6px; }
-        .ch-info { width: 150px; text-align: left; display: flex; align-items: center; gap: 5px; }
-        .ch-label { font-weight: bold; font-size: 14px; color: #fff; width: 40px;}
-        select { background: #333; color: #00ffcc; border: 1px solid #555; padding: 2px; border-radius: 4px; font-size: 12px; width: 90px; cursor: pointer;}
-        
-        .ch-bar-bg { flex: 1; height: 12px; background: #333; margin: 0 10px; border-radius: 6px; overflow: hidden; position: relative; border: 1px solid #444; }
-        .ch-bar-fill { height: 100%; background: #0099ff; width: 50%; position: absolute; left: 0; transition: width 0.05s; }
-        .ch-val { width: 40px; text-align: right; font-family: monospace; font-size: 12px; color: #aaa; }
-        .chk-container { display: flex; align-items: center; font-size: 12px; color: #888; cursor: pointer; margin-left: 10px;}
-        .cal-btn { background: #444; border: 1px solid #666; color: #fff; padding: 2px 6px; border-radius: 3px; font-size: 10px; cursor: pointer; margin-left: 3px; }
-        .cal-btn:hover { background: #555; }
-        .cal-btn.set { background: #2a5a2a; border-color: #4a4; }
+        /* 關卡選擇 */
+        #level-select { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(10,10,20,0.97); z-index:1000; display:none; flex-direction:column; align-items:center; justify-content:center; color:white; }
+        #level-select h2 { color:#00ffcc; font-size:28px; margin-bottom:20px; letter-spacing:3px; }
+        #level-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:15px; max-width:700px; width:90%; }
+        .level-card { background:#1a1a2a; border:2px solid #333; border-radius:12px; padding:15px 10px; text-align:center; cursor:pointer; transition:all 0.2s; }
+        .level-card:hover { border-color:#00ffcc; transform:scale(1.05); background:#222244; }
+        .level-num { font-size:32px; font-weight:900; color:#00ffcc; }
+        .level-name { font-size:14px; font-weight:bold; margin:5px 0; }
+        .level-desc { font-size:11px; color:#888; line-height:1.3; }
+        .level-best { font-size:12px; margin-top:8px; color:#ffaa00; }
 
-        .start-btn { background: linear-gradient(to right, #0099ff, #00ffcc); border: none; padding: 12px 50px; font-size: 20px; font-weight: bold; color: #000; border-radius: 50px; cursor: pointer; margin-top: 20px; box-shadow: 0 0 15px rgba(0, 255, 204, 0.3); }
-        .start-btn:hover { filter: brightness(1.1); transform: scale(1.05); }
+        /* HUD */
+        #ui-layer { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; display:none; flex-direction:column; justify-content:space-between; }
+        #hud-top { padding:15px 20px; color:#fff; text-shadow:1px 1px 2px black; font-size:16px; font-weight:bold; background:linear-gradient(to bottom,rgba(0,0,0,0.6),transparent); display:flex; justify-content:space-between; }
+        #center-info { text-align:center; }
+        #level-title { color:#00ffcc; font-size:24px; letter-spacing:2px; }
+        #instruction { color:#ffff00; font-size:14px; margin-top:3px; }
+        #progress-bar-container { width:280px; height:8px; background:#333; margin:8px auto; border-radius:5px; overflow:hidden; border:1px solid #555; }
+        #progress-fill { height:100%; width:0%; background:linear-gradient(to right,#00ff00,#00ffcc); transition:width 0.1s; }
 
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
-        #hud-top { padding: 20px; color: #fff; text-shadow: 1px 1px 2px black; font-size: 18px; font-weight: bold; background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent); display: flex; justify-content: space-between; }
-        #center-info { text-align: center; }
-        #level-title { color: #00ffcc; font-size: 28px; letter-spacing: 2px; }
-        #instruction { color: #ffff00; font-size: 16px; margin-top: 5px; }
-        #progress-bar-container { width: 300px; height: 10px; background: #333; margin: 10px auto; border-radius: 5px; overflow: hidden; border: 1px solid #555; }
-        #progress-fill { height: 100%; width: 0%; background: #00ff00; transition: width 0.1s; }
-        
-        #msg-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; display: none; background: rgba(0,0,0,0.9); padding: 40px; border-radius: 15px; border: 2px solid #00ffcc; pointer-events: auto; z-index: 2000; }
-        #msg-title { font-size: 40px; color: #00ffcc; margin-bottom: 10px; }
+        /* 完成彈窗 */
+        #msg-overlay { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; display:none; background:rgba(0,0,0,0.92); padding:40px 50px; border-radius:15px; border:2px solid #00ffcc; pointer-events:auto; z-index:2000; }
+        #msg-title { font-size:36px; color:#00ffcc; margin-bottom:8px; }
+        #msg-time { font-size:18px; color:#fff; }
+        #msg-best { font-size:14px; color:#ffaa00; margin:5px 0 15px; }
+
+        /* 鍵盤操作框 */
+        .kb-box { margin-top:15px; padding:10px; background:#1a2a1a; border:1px solid #4a4; border-radius:8px; }
     </style>
 </head>
 <body>
 
-    <div id="ui-layer" style="display:none;">
+    <div id="ui-layer">
         <div id="hud-top">
             <div style="text-align:left;">
                 <div id="stat-thr">THR: 0%</div>
-                <div id="stat-mode" style="font-size:12px; color:#88ff88;">MODE: ANGLE</div>
-                <div id="stat-input" style="font-size:11px; color:#aaa;">⌨️ 鍵盤</div>
-                <div id="stat-armed" style="font-size:12px; color:#ff3333;">DISARMED</div>
+                <div id="stat-mode" style="font-size:12px;color:#88ff88;">MODE: ANGLE</div>
+                <div id="stat-input" style="font-size:11px;color:#aaa;">⌨️ 鍵盤</div>
+                <div id="stat-armed" style="font-size:12px;color:#ff3333;">DISARMED</div>
             </div>
             <div id="center-info">
                 <div id="level-title">LEVEL 1</div>
-                <div id="instruction">任務目標載入中...</div>
+                <div id="instruction">載入中...</div>
                 <div id="progress-bar-container"><div id="progress-fill"></div></div>
             </div>
             <div style="text-align:right;">
                 <div id="stat-time">0.0s</div>
-                <div id="stat-alt" style="font-size:14px; color:#aaa;">ALT: 0.0m</div>
+                <div id="stat-best" style="font-size:12px;color:#ffaa00;">最佳: --</div>
+                <div id="stat-alt" style="font-size:14px;color:#aaa;">ALT: 0.0m</div>
+                <div style="font-size:11px;color:#666;margin-top:4px;">ESC 返回選關</div>
             </div>
         </div>
     </div>
 
     <div id="msg-overlay">
-        <div id="msg-title">關卡完成!</div>
-        <button class="start-btn" id="btn-next">下一關</button>
+        <div id="msg-title">🎉 關卡完成！</div>
+        <div id="msg-time">用時: 0s</div>
+        <div id="msg-best"></div>
+        <button class="start-btn" id="btn-next" style="font-size:16px;padding:10px 40px;">下一關 →</button>
+    </div>
+
+    <div id="level-select">
+        <h2>🚁 選擇關卡</h2>
+        <div id="level-grid"></div>
+        <div style="margin-top:20px;font-size:12px;color:#666;">ESC 返回設定</div>
     </div>
 
     <div id="setup-screen">
         <div class="setup-box">
-            <h2 style="color:#00ffcc; margin-top:0; margin-bottom: 5px;">飛行前檢查</h2>
-            <div id="status-msg" style="color:#ffaa00; font-size:12px; margin-bottom:10px;">請連接搖桿...</div>
-            
+            <h2 style="color:#00ffcc;margin-top:0;margin-bottom:5px;">🚁 飛行前檢查</h2>
+            <div id="status-msg" style="color:#ffaa00;font-size:12px;margin-bottom:10px;">請連接搖桿...</div>
+
             <div class="monitor-box">
-                <div style="font-size:11px; color:#888; margin-bottom:5px; text-align:left; display:flex; justify-content:space-between;">
-                    <span>🔍 訊號監控 (推動搖桿確認 Axis 編號)</span>
-                    <button onclick="window.doCalibration()" style="background:#444; border:none; color:white; border-radius:4px; font-size:10px; cursor:pointer;">🎯 校正中點</button>
+                <div style="font-size:11px;color:#888;margin-bottom:5px;text-align:left;display:flex;justify-content:space-between;">
+                    <span>🔍 訊號監控</span>
+                    <button onclick="window.doCalibration()" style="background:#444;border:none;color:white;border-radius:4px;font-size:10px;cursor:pointer;">🎯 校正中點</button>
                 </div>
                 <div id="raw-monitor" class="monitor-grid"></div>
             </div>
 
-            <div style="background:#222; padding:5px; border-radius:6px; margin-bottom:10px; font-size:12px;">
-                偵測模式: <span id="mode-display" style="color:#00ffcc; font-weight:bold;">WAITING...</span>
+            <div style="background:#222;padding:5px;border-radius:6px;margin-bottom:10px;font-size:12px;">
+                偵測模式: <span id="mode-display" style="color:#00ffcc;font-weight:bold;">WAITING...</span>
             </div>
 
             <div class="channel-row">
                 <div class="ch-info"><div class="ch-label">油門</div><select id="map-t" onchange="window.updateMapping()"><option>...</option></select></div>
                 <div class="ch-bar-bg"><div id="bar-thr" class="ch-bar-fill"></div></div>
                 <div id="txt-thr" class="ch-val">0%</div>
-                <button id="cal-t-min" class="cal-btn" onclick="window.calibrateEndpoint('thrust','min')">設Min</button>
-                <button id="cal-t-max" class="cal-btn" onclick="window.calibrateEndpoint('thrust','max')">設Max</button>
+                <button id="cal-t-min" class="cal-btn" onclick="window.calibrateEndpoint('thrust','min')">Min</button>
+                <button id="cal-t-max" class="cal-btn" onclick="window.calibrateEndpoint('thrust','max')">Max</button>
                 <label class="chk-container"><input type="checkbox" id="inv-t" onchange="window.updateMapping()">反轉</label>
             </div>
             <div class="channel-row">
                 <div class="ch-info"><div class="ch-label">轉向</div><select id="map-r" onchange="window.updateMapping()"><option>...</option></select></div>
                 <div class="ch-bar-bg"><div id="bar-yaw" class="ch-bar-fill"></div></div>
                 <div id="txt-yaw" class="ch-val">0</div>
-                <button id="cal-y-min" class="cal-btn" onclick="window.calibrateEndpoint('yaw','min')">設Min</button>
-                <button id="cal-y-max" class="cal-btn" onclick="window.calibrateEndpoint('yaw','max')">設Max</button>
+                <button id="cal-y-min" class="cal-btn" onclick="window.calibrateEndpoint('yaw','min')">Min</button>
+                <button id="cal-y-max" class="cal-btn" onclick="window.calibrateEndpoint('yaw','max')">Max</button>
                 <label class="chk-container"><input type="checkbox" id="inv-r" onchange="window.updateMapping()">反轉</label>
             </div>
             <div class="channel-row">
                 <div class="ch-info"><div class="ch-label">俯仰</div><select id="map-e" onchange="window.updateMapping()"><option>...</option></select></div>
                 <div class="ch-bar-bg"><div id="bar-pit" class="ch-bar-fill"></div></div>
                 <div id="txt-pit" class="ch-val">0</div>
-                <button id="cal-p-min" class="cal-btn" onclick="window.calibrateEndpoint('pitch','min')">設Min</button>
-                <button id="cal-p-max" class="cal-btn" onclick="window.calibrateEndpoint('pitch','max')">設Max</button>
+                <button id="cal-p-min" class="cal-btn" onclick="window.calibrateEndpoint('pitch','min')">Min</button>
+                <button id="cal-p-max" class="cal-btn" onclick="window.calibrateEndpoint('pitch','max')">Max</button>
                 <label class="chk-container"><input type="checkbox" id="inv-e" onchange="window.updateMapping()" checked>反轉</label>
             </div>
             <div class="channel-row">
                 <div class="ch-info"><div class="ch-label">橫滾</div><select id="map-a" onchange="window.updateMapping()"><option>...</option></select></div>
                 <div class="ch-bar-bg"><div id="bar-rol" class="ch-bar-fill"></div></div>
                 <div id="txt-rol" class="ch-val">0</div>
-                <button id="cal-r-min" class="cal-btn" onclick="window.calibrateEndpoint('roll','min')">設Min</button>
-                <button id="cal-r-max" class="cal-btn" onclick="window.calibrateEndpoint('roll','max')">設Max</button>
+                <button id="cal-r-min" class="cal-btn" onclick="window.calibrateEndpoint('roll','min')">Min</button>
+                <button id="cal-r-max" class="cal-btn" onclick="window.calibrateEndpoint('roll','max')">Max</button>
                 <label class="chk-container"><input type="checkbox" id="inv-a" onchange="window.updateMapping()">反轉</label>
             </div>
             <div class="channel-row">
                 <div class="ch-info"><div class="ch-label" style="color:#88ff88">模式</div><select id="map-mode" onchange="window.updateMapping()"><option>...</option></select></div>
-                <div id="txt-mode" style="flex:1; font-weight:bold; color:#88ff88; font-size: 14px; text-align:right;">Unknown</div>
+                <div id="txt-mode" style="flex:1;font-weight:bold;color:#88ff88;font-size:14px;text-align:right;">Unknown</div>
             </div>
-             <div class="channel-row" style="border:1px solid #553333; background:#2a1a1a;">
+            <div class="channel-row" style="border:1px solid #553333;background:#2a1a1a;">
                 <div class="ch-info"><div class="ch-label" style="color:#ff5555">解鎖</div><select id="map-arm" onchange="window.updateMapping()"><option>...</option></select></div>
-                <div id="txt-arm" style="flex:1; font-weight:bold; color:#ff3333; font-size: 14px; text-align:right;">未解鎖</div>
+                <div id="txt-arm" style="flex:1;font-weight:bold;color:#ff3333;font-size:14px;text-align:right;">未解鎖</div>
             </div>
 
-            <div style="margin-top:15px; padding:10px; background:#1a2a1a; border:1px solid #4a4; border-radius:8px;">
-                <div style="font-size:13px; color:#88ff88; margin-bottom:8px;">⌨️ 鍵盤控制（按 K 切換）</div>
-                <div style="font-size:11px; color:#aaa; text-align:left; line-height:1.8;">
-                    <b>W / S</b> — 油門升降 &nbsp;&nbsp;
-                    <b>A / D</b> — 轉向 (Yaw)<br>
-                    <b>↑ / ↓</b> — 俯仰 (Pitch) &nbsp;&nbsp;
-                    <b>← / →</b> — 橫滾 (Roll)<br>
-                    <b>Space</b> — 解鎖/鎖定 &nbsp;&nbsp;
-                    <b>1/2/3</b> — 切模式 &nbsp;&nbsp;
-                    <b>Shift</b> — 加速
+            <div class="kb-box">
+                <div style="font-size:13px;color:#88ff88;margin-bottom:8px;">⌨️ 鍵盤控制</div>
+                <div style="font-size:11px;color:#aaa;text-align:left;line-height:1.8;">
+                    <b>W/S</b> 油門升降 &nbsp; <b>A/D</b> 轉向 &nbsp;
+                    <b>↑↓</b> 俯仰 &nbsp; <b>←→</b> 橫滾<br>
+                    <b>Space</b> 解鎖 &nbsp; <b>1/2/3</b> 切模式 &nbsp;
+                    <b>R</b> 重置 &nbsp; <b>ESC</b> 返回
                 </div>
-                <button class="start-btn" style="margin-top:10px; padding:8px 30px; font-size:14px; background:linear-gradient(to right, #44aa44, #88ff88);" 
-                    onclick="window.startKeyboard()">⌨️ 鍵盤模式起飛</button>
+                <button class="start-btn" style="margin-top:10px;padding:8px 30px;font-size:14px;background:linear-gradient(to right,#44aa44,#88ff88);"
+                    onclick="window.startKeyboard()">⌨️ 鍵盤模式</button>
             </div>
-            <button class="start-btn" onclick="window.startGameApp()">🎮 搖桿模式起飛</button>
+            <button class="start-btn" onclick="window.startGameApp()">🎮 搖桿模式</button>
         </div>
     </div>
 

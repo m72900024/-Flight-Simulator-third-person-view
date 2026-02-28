@@ -86,20 +86,20 @@ export class LevelManager {
     _setupAltitudeHold(grp) {
         // 半透明綠色平面在 2.5m 高
         const plane = new THREE.Mesh(
-            new THREE.PlaneGeometry(6, 6),
-            new THREE.MeshBasicMaterial({ color: 0x00ff44, transparent: true, opacity: 0.15, side: THREE.DoubleSide })
+            new THREE.PlaneGeometry(20, 20),
+            new THREE.MeshBasicMaterial({ color: 0x00ff44, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
         );
         plane.rotation.x = -Math.PI / 2;
         plane.position.y = 2.5;
         grp.add(plane);
-        // 邊框
-        const ring = new THREE.Mesh(
-            new THREE.RingGeometry(2.8, 3, 32),
-            new THREE.MeshBasicMaterial({ color: 0x00ff44, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
+        // 亮綠色線框方塊標示目標高度區域 (2~3m)
+        const boxGeo = new THREE.BoxGeometry(20, 1, 20);
+        const boxWire = new THREE.Mesh(
+            boxGeo,
+            new THREE.MeshBasicMaterial({ color: 0x00ff44, wireframe: true, transparent: true, opacity: 0.5 })
         );
-        ring.rotation.x = -Math.PI / 2;
-        ring.position.y = 2.5;
-        grp.add(ring);
+        boxWire.position.y = 2.5;
+        grp.add(boxWire);
         this._altPlane = plane;
     }
 

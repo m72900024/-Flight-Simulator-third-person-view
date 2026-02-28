@@ -95,8 +95,8 @@ export class InputController {
 
         // 方向鍵：俯仰/橫滾（按住有值，放開回零）
         let pitch = 0, roll = 0, yaw = 0;
-        if (k['ArrowUp'])    pitch =  0.6;
-        if (k['ArrowDown'])  pitch = -0.6;
+        if (k['ArrowUp'])    pitch = -0.6;
+        if (k['ArrowDown'])  pitch =  0.6;
         if (k['ArrowLeft'])  roll  = -0.6;
         if (k['ArrowRight']) roll  =  0.6;
 

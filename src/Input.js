@@ -87,15 +87,26 @@ export class InputController {
     updateKeyboard() {
         const k = this.keys;
 
-        // W 按住就飛，放開油門快速歸零（模擬真實：鬆油門 = 斷電墜落）
-        if (k['KeyW']) {
-            this.keyThrottle = Math.min(1, this.keyThrottle + 0.04);
+        // Alt Hold 模式：固定油門值（鍵盤無法精確控制連續油門）
+        if (this.state.flightMode === FLIGHT_MODES.ALT_HOLD) {
+            if (k['KeyW']) {
+                this.keyThrottle = 0.8;
+            } else if (k['KeyS']) {
+                this.keyThrottle = 0.2;
+            } else {
+                this.keyThrottle = 0.5;
+            }
         } else {
-            this.keyThrottle *= 0.85; // 指數衰減，快速歸零
-            if (this.keyThrottle < 0.01) this.keyThrottle = 0;
+            // W 按住就飛，放開油門快速歸零（模擬真實：鬆油門 = 斷電墜落）
+            if (k['KeyW']) {
+                this.keyThrottle = Math.min(1, this.keyThrottle + 0.04);
+            } else {
+                this.keyThrottle *= 0.85; // 指數衰減，快速歸零
+                if (this.keyThrottle < 0.01) this.keyThrottle = 0;
+            }
+            // S 直接油門歸零
+            if (k['KeyS']) this.keyThrottle = 0;
         }
-        // S 直接油門歸零
-        if (k['KeyS']) this.keyThrottle = 0;
         this.state.t = this.keyThrottle;
 
         // 方向鍵：俯仰/橫滾（按住有值，放開回零）

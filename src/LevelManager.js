@@ -511,7 +511,7 @@ export class LevelManager {
         positions.setXYZ(0, from.x, from.y, from.z);
         positions.setXYZ(1, to.x, to.y, to.z);
         positions.needsUpdate = true;
-        this._guideLine.geometry.computeLineDistances();
+        this._guideLine.computeLineDistances();
         this._guideLine.visible = true;
     }
 

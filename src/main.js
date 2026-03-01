@@ -217,6 +217,7 @@ function animate() {
     if (appState === 'SETUP') {
         updateSetupUI();
     } else if (appState === 'GAME') {
+      try {
         const dt = Math.min(clock.getDelta(), 0.1);
         const inp = input.update();
         physics.update(dt, inp);
@@ -257,6 +258,10 @@ function animate() {
         document.getElementById('stat-heading').innerText = `方向: ${dirs[dirIdx]}`;
 
         gameScene.render();
+      } catch(e) {
+        document.getElementById('level-title').innerText = 'ERROR: ' + e.message;
+        console.error('Game loop error:', e);
+      }
     }
 }
 animate();

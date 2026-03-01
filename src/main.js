@@ -233,6 +233,24 @@ function animate() {
         else if (physics.pos.y > CONFIG.maxHeight*0.5) altEl.style.color='#ffaa00';
         else altEl.style.color='#aaa';
 
+        // Distance to active waypoint
+        const distEl = document.getElementById('stat-dist');
+        if (levelManager.activeTarget) {
+            const d = physics.pos.distanceTo(levelManager.activeTarget);
+            distEl.innerText = `距離: ${d.toFixed(1)}m`;
+        } else {
+            distEl.innerText = '距離: --';
+        }
+
+        // Compass heading from drone quaternion
+        const euler = new THREE.Euler();
+        euler.setFromQuaternion(physics.quat, 'YXZ');
+        let yawDeg = THREE.MathUtils.radToDeg(euler.y);
+        yawDeg = ((yawDeg % 360) + 360) % 360; // normalize to 0-360
+        const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+        const dirIdx = Math.round(yawDeg / 45) % 8;
+        document.getElementById('stat-heading').innerText = `方向: ${dirs[dirIdx]}`;
+
         gameScene.render();
     }
 }

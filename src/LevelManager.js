@@ -18,6 +18,13 @@ export class LevelManager {
         this._examStepIndex = 0;
         this._examHoverTimer = 0;
 
+        // Guide line (drone → active waypoint)
+        this._guideLine = null;
+        // Base Y positions for floating animation
+        this._wpBaseY = [];
+        // Active target position (for HUD distance display)
+        this.activeTarget = null;
+
         // localStorage best times
         this.bestTimes = JSON.parse(localStorage.getItem('flightSimBest') || '{}');
     }
@@ -48,8 +55,21 @@ export class LevelManager {
         this._examStepIndex = 0;
         this._examHoverTimer = 0;
 
+        this._wpBaseY = [];
+        this.activeTarget = null;
+
         const grp = this.scene.levelGroup;
         while (grp.children.length > 0) grp.remove(grp.children[0]);
+
+        // Create guide line (drone → active waypoint)
+        const lineGeo = new THREE.BufferGeometry();
+        lineGeo.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0, 0,0,0], 3));
+        const lineMat = new THREE.LineDashedMaterial({
+            color: 0x00ffcc, dashSize: 0.5, gapSize: 0.3, transparent: true, opacity: 0.8
+        });
+        this._guideLine = new THREE.Line(lineGeo, lineMat);
+        this._guideLine.visible = false;
+        grp.add(this._guideLine);
 
         const lvl = CONFIG.levels[levelIndex - 1];
         document.getElementById('level-title').innerText = `第 ${levelIndex} 關：${lvl.name}`;
@@ -73,7 +93,7 @@ export class LevelManager {
 
     _makeWpSphere(pos, color = 0x00ff88) {
         const m = new THREE.Mesh(
-            new THREE.SphereGeometry(0.6, 16, 16),
+            new THREE.SphereGeometry(1.0, 16, 16),
             new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5, transparent: true, opacity: 0.7 })
         );
         m.position.set(...pos);
@@ -124,6 +144,7 @@ export class LevelManager {
     _setupWaypoints(grp, points) {
         this.waypoints = points;
         this.wpMeshes = [];
+        this._wpBaseY = points.map(p => p[1]);
         this.wpIndex = 0;
         points.forEach((p, i) => {
             const m = this._makeWpSphere(p, i === 0 ? 0x00ff88 : 0x444488);
@@ -170,6 +191,7 @@ export class LevelManager {
             [0, 3, -10], [6, 3, -4], [6, 3, -16]
         ];
         this.checkpoints = cps;
+        this._wpBaseY = cps.map(cp => cp[1]);
         this.cpIndex = 0;
         cps.forEach((cp, i) => {
             const m = this._makeWpSphere(cp, i === 0 ? 0xffaa00 : 0x664400);
@@ -318,6 +340,21 @@ export class LevelManager {
         const pFill = document.getElementById('progress-fill');
         const L = this.currentLevel;
 
+        // Floating animation for active waypoint meshes
+        const bobY = Math.sin(Date.now() * 0.003) * 0.3;
+        if ((L >= 3 && L <= 5) || L === 7) {
+            const activeIdx = L === 7 ? this.cpIndex : this.wpIndex;
+            this.wpMeshes.forEach((mesh, i) => {
+                if (i === activeIdx && i < this._wpBaseY.length) {
+                    mesh.position.y = this._wpBaseY[i] + bobY;
+                }
+            });
+        }
+
+        // Hide guide line by default; level branches below will show it
+        if (this._guideLine) this._guideLine.visible = false;
+        this.activeTarget = null;
+
         if (L === 1) {
             // 高度 2~3m
             if (dronePos.y >= 2 && dronePos.y <= 3) {
@@ -344,7 +381,10 @@ export class LevelManager {
 
         } else if (L >= 3 && L <= 5) {
             const wp = this.waypoints[this.wpIndex];
-            const dist = dronePos.distanceTo(new THREE.Vector3(...wp));
+            const target = new THREE.Vector3(...wp);
+            this.activeTarget = target;
+            this._updateGuideLine(dronePos, target);
+            const dist = dronePos.distanceTo(target);
             if (dist < 1.8) {
                 this.wpIndex++;
                 if (this.wpIndex >= this.waypoints.length) {
@@ -356,13 +396,19 @@ export class LevelManager {
             pFill.style.width = (this.wpIndex / this.waypoints.length * 100) + '%';
 
         } else if (L === 6) {
-            const dist = dronePos.distanceTo(this._gate.position);
+            const target = this._gate.position;
+            this.activeTarget = target;
+            this._updateGuideLine(dronePos, target);
+            const dist = dronePos.distanceTo(target);
             if (dist < 2) this._complete();
             pFill.style.width = Math.max(0, 100 - dist * 5) + '%';
 
         } else if (L === 7) {
             const cp = this.checkpoints[this.cpIndex];
-            const dist = dronePos.distanceTo(new THREE.Vector3(...cp));
+            const target = new THREE.Vector3(...cp);
+            this.activeTarget = target;
+            this._updateGuideLine(dronePos, target);
+            const dist = dronePos.distanceTo(target);
             if (dist < 2.5) {
                 this.cpIndex++;
                 if (this.cpIndex >= this.checkpoints.length) {
@@ -374,6 +420,13 @@ export class LevelManager {
             pFill.style.width = (this.cpIndex / this.checkpoints.length * 100) + '%';
 
         } else if (L === 8) {
+            // Guide line to current exam step target
+            const step = this._examSteps[this._examStepIndex];
+            if (step) {
+                const target = new THREE.Vector3(...step.pos);
+                this.activeTarget = target;
+                this._updateGuideLine(dronePos, target);
+            }
             this._checkExam(dronePos, dt, pFill);
         }
     }
@@ -385,6 +438,16 @@ export class LevelManager {
     static setUnlockedLevel(level) {
         const current = LevelManager.getUnlockedLevel();
         if (level > current) localStorage.setItem('flightSimUnlocked', String(level));
+    }
+
+    _updateGuideLine(from, to) {
+        if (!this._guideLine) return;
+        const positions = this._guideLine.geometry.attributes.position;
+        positions.setXYZ(0, from.x, from.y, from.z);
+        positions.setXYZ(1, to.x, to.y, to.z);
+        positions.needsUpdate = true;
+        this._guideLine.geometry.computeLineDistances();
+        this._guideLine.visible = true;
     }
 
     _complete() {

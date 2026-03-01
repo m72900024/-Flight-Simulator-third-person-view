@@ -217,7 +217,7 @@ export class LevelManager {
                 this.timer += dt;
                 if (this._altPlane) this._altPlane.material.color.setHex(0xffff00);
             } else {
-                this.timer = Math.max(0, this.timer - dt * 2);
+                this.timer = Math.max(0, this.timer - dt * 0.5);
                 if (this._altPlane) this._altPlane.material.color.setHex(0x00ff44);
             }
             pFill.style.width = Math.min(100, this.timer / 3 * 100) + '%';

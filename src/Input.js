@@ -15,6 +15,7 @@ export class InputController {
         this.keyThrottle = 0; // 油門需要累加，不是瞬間的
 
         const onKey = (e) => {
+            if (e.repeat) return;
             this.keys[e.code] = true;
 
             // Space 切換解鎖
@@ -85,6 +86,10 @@ export class InputController {
 
     // --- 鍵盤輸入更新 ---
     updateKeyboard() {
+        const now = performance.now();
+        const dt = this._lastKeyboardTime ? (now - this._lastKeyboardTime) / 1000 : 1 / 60;
+        this._lastKeyboardTime = now;
+
         const k = this.keys;
 
         // Alt Hold 模式：固定油門值（鍵盤無法精確控制連續油門）
@@ -99,9 +104,9 @@ export class InputController {
         } else {
             // W 按住就飛，放開油門快速歸零（模擬真實：鬆油門 = 斷電墜落）
             if (k['KeyW']) {
-                this.keyThrottle = Math.min(1, this.keyThrottle + 0.04);
+                this.keyThrottle = Math.min(1, this.keyThrottle + 2.4 * dt);
             } else {
-                this.keyThrottle *= 0.85; // 指數衰減，快速歸零
+                this.keyThrottle *= Math.pow(0.85, dt * 60);
                 if (this.keyThrottle < 0.01) this.keyThrottle = 0;
             }
             // S 直接油門歸零
@@ -120,11 +125,11 @@ export class InputController {
         if (k['KeyA']) yaw = -0.6;
         if (k['KeyD']) yaw =  0.6;
 
-        // Shift 加速（按住全量）
+        // Shift 精密模式（按住縮小操控量）
         if (k['ShiftLeft'] || k['ShiftRight']) {
-            pitch *= 1.6;
-            roll *= 1.6;
-            yaw *= 1.6;
+            pitch *= 0.4;
+            roll *= 0.4;
+            yaw *= 0.4;
         }
 
         // 限制範圍

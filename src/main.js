@@ -72,6 +72,7 @@ window.calibrateEndpoint = function (ch, type) {
 
 // --- 關卡選擇 ---
 function showLevelSelect() {
+    appState = 'LEVEL_SELECT';
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('level-select').style.display = 'flex';
     const grid = document.getElementById('level-grid');
@@ -87,7 +88,7 @@ function showLevelSelect() {
             <div class="level-num">${lv.id}</div>
             <div class="level-name">${lv.name}</div>
             <div class="level-desc">${lv.desc}</div>
-            <div class="level-best">${best ? '✅ ' + best + 's' : '🔒'}</div>
+            <div class="level-best">${locked ? '🔒' : (best ? '✅ ' + best + 's' : '—')}</div>
         `;
         if (locked) {
             div.style.opacity = '0.4';
@@ -158,11 +159,19 @@ function updateSetupUI() {
 
 // --- ESC 返回 ---
 window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && appState === 'GAME') {
-        appState = 'SETUP';
-        document.getElementById('ui-layer').style.display = 'none';
-        document.getElementById('msg-overlay').style.display = 'none';
-        showLevelSelect();
+    if (e.key === 'Escape') {
+        if (appState === 'GAME') {
+            appState = 'SETUP';
+            document.getElementById('ui-layer').style.display = 'none';
+            document.getElementById('msg-overlay').style.display = 'none';
+            if (physics) physics.reset();
+            input.keyThrottle = 0;
+            showLevelSelect();
+        } else if (appState === 'LEVEL_SELECT') {
+            document.getElementById('level-select').style.display = 'none';
+            document.getElementById('setup-screen').style.display = 'flex';
+            appState = 'SETUP';
+        }
     }
 });
 window.addEventListener('resize', () => {

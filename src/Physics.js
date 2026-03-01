@@ -7,6 +7,7 @@ export class PhysicsEngine {
         this.quat = new THREE.Quaternion();
         this.rotVel = new THREE.Vector3(0, 0, 0); // 角速度
         this.crashIntensity = 0;
+        this.altHoldTarget = null;
     }
 
     reset() {
@@ -15,6 +16,7 @@ export class PhysicsEngine {
         this.rotVel.set(0, 0, 0);
         this.quat.identity();
         this.crashIntensity = 0;
+        this.altHoldTarget = null;
     }
 
     update(dt, input) {
@@ -31,13 +33,20 @@ export class PhysicsEngine {
         if (input.flightMode === FLIGHT_MODES.ALT_HOLD && input.armed) {
             const hoverThrust = CONFIG.mass * CONFIG.gravity;
             if (input.t >= 0.4 && input.t <= 0.6) {
-                // Deadzone: counteract gravity exactly + damp vertical velocity
-                thrustMag = hoverThrust - this.vel.y * CONFIG.mass * 5;
+                // Deadzone: PID-like altitude hold
+                if (this.altHoldTarget === null) {
+                    this.altHoldTarget = this.pos.y;
+                }
+                const kP = 8;
+                const kD = 5 * CONFIG.mass;
+                thrustMag = hoverThrust + kP * (this.altHoldTarget - this.pos.y) - kD * this.vel.y;
             } else if (input.t > 0.6) {
+                this.altHoldTarget = null;
                 // Climb: hover thrust + extra proportional to stick above deadzone
                 const climbInput = (input.t - 0.6) / 0.4; // 0..1
                 thrustMag = hoverThrust + climbInput * CONFIG.thrustPower * 0.5;
             } else {
+                this.altHoldTarget = null;
                 // Descend: hover thrust - reduction proportional to stick below deadzone
                 const descendInput = (0.4 - input.t) / 0.4; // 0..1
                 thrustMag = hoverThrust * (1 - descendInput * 0.8);
@@ -61,8 +70,8 @@ export class PhysicsEngine {
         this.vel.add(accel.multiplyScalar(dt));
         this.pos.add(this.vel.clone().multiplyScalar(dt));
 
-        // Decay crash intensity each frame
-        this.crashIntensity *= 0.92;
+        // Decay crash intensity (frame-rate independent)
+        this.crashIntensity *= Math.pow(0.92, dt * 60);
 
         // 地板碰撞 (更真實的彈跳)
         if (this.pos.y < CONFIG.hardDeck) {

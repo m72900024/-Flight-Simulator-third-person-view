@@ -112,29 +112,94 @@ export class LevelManager {
     }
 
     _setupAltitudeHold(grp) {
-        // 半透明綠色平面在 2.5m 高
+        // 4 vertical reference poles at corners (±3, 0, ±3), 3m tall
+        const poleGeo = new THREE.CylinderGeometry(0.03, 0.03, 3, 8);
+        const poleMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
+        const corners = [[-3, 0, -3], [3, 0, -3], [3, 0, 3], [-3, 0, 3]];
+
+        corners.forEach(([cx, , cz]) => {
+            const pole = new THREE.Mesh(poleGeo, poleMat);
+            pole.position.set(cx, 1.5, cz);
+            grp.add(pole);
+
+            // Bright green bands at 2m and 3m height (target zone boundaries)
+            [2, 3].forEach(h => {
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.15, 0.03, 8, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x00ff44, emissive: 0x00ff44, emissiveIntensity: 0.5 })
+                );
+                ring.rotation.x = Math.PI / 2;
+                ring.position.set(cx, h, cz);
+                grp.add(ring);
+            });
+        });
+
+        // Small transparent green plane at 2.5m (4×4)
         const plane = new THREE.Mesh(
-            new THREE.PlaneGeometry(20, 20),
-            new THREE.MeshBasicMaterial({ color: 0x00ff44, transparent: true, opacity: 0.3, side: THREE.DoubleSide })
+            new THREE.PlaneGeometry(4, 4),
+            new THREE.MeshBasicMaterial({ color: 0x00ff44, transparent: true, opacity: 0.25, side: THREE.DoubleSide })
         );
         plane.rotation.x = -Math.PI / 2;
         plane.position.y = 2.5;
         grp.add(plane);
-        // 亮綠色線框方塊標示目標高度區域 (2~3m)
-        const boxGeo = new THREE.BoxGeometry(20, 1, 20);
-        const boxWire = new THREE.Mesh(
-            boxGeo,
-            new THREE.MeshBasicMaterial({ color: 0x00ff44, wireframe: true, transparent: true, opacity: 0.5 })
-        );
-        boxWire.position.y = 2.5;
-        grp.add(boxWire);
+
+        // Grid overlay at 2.5m for spatial reference
+        const grid = new THREE.GridHelper(4, 8, 0x00ff44, 0x00ff44);
+        grid.position.y = 2.5;
+        if (Array.isArray(grid.material)) {
+            grid.material.forEach(m => { m.transparent = true; m.opacity = 0.3; });
+        } else {
+            grid.material.transparent = true;
+            grid.material.opacity = 0.3;
+        }
+        grp.add(grid);
+
         this._altPlane = plane;
     }
 
     _setupHoverBox(grp) {
+        // Landing-target concentric rings on the ground
+        const ringConfigs = [
+            { inner: 0.6, outer: 0.8, color: 0xff0000 },
+            { inner: 1.0, outer: 1.2, color: 0xffffff },
+            { inner: 1.4, outer: 1.6, color: 0xff0000 },
+        ];
+        ringConfigs.forEach(({ inner, outer, color }) => {
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(inner, outer, 32),
+                new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide })
+            );
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.set(0, 0.02, 0);
+            grp.add(ring);
+        });
+
+        // 4 vertical boundary poles at (±1.25, 0, ±1.25), 4m tall
+        const poleGeo = new THREE.CylinderGeometry(0.03, 0.03, 4, 8);
+        const poleMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
+        const poleCorners = [[-1.25, 0, -1.25], [1.25, 0, -1.25], [1.25, 0, 1.25], [-1.25, 0, 1.25]];
+
+        poleCorners.forEach(([cx, , cz]) => {
+            const pole = new THREE.Mesh(poleGeo, poleMat);
+            pole.position.set(cx, 2, cz);
+            grp.add(pole);
+
+            // Green bands at 2m and 4m (hover height zone boundaries)
+            [2, 4].forEach(h => {
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.15, 0.03, 8, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x00ff44, emissive: 0x00ff44, emissiveIntensity: 0.5 })
+                );
+                ring.rotation.x = Math.PI / 2;
+                ring.position.set(cx, h, cz);
+                grp.add(ring);
+            });
+        });
+
+        // Semi-transparent solid green box (no wireframe) for zone visibility
         const box = new THREE.Mesh(
             new THREE.BoxGeometry(2.5, 2.5, 2.5),
-            new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true, transparent: true, opacity: 0.3 })
+            new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.08 })
         );
         box.position.set(0, 3, 0);
         grp.add(box);

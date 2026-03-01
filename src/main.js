@@ -3,6 +3,7 @@ import { PhysicsEngine } from './Physics.js';
 import { GameScene } from './Scene.js';
 import { LevelManager } from './LevelManager.js';
 import { CONFIG, FLIGHT_MODES } from './Config.js';
+import { touchInput } from './TouchInput.js';
 
 const input = new InputController();
 let physics, gameScene, levelManager;
@@ -106,11 +107,30 @@ window.startKeyboard = function () {
     showLevelSelect();
 };
 
+window.startTouch = function () {
+    input.useTouch = true;
+    input.state.armed = true;
+    touchInput.hide(); // hide during level select, show when game starts
+    showLevelSelect();
+};
+
 window.startGameApp = function () { showLevelSelect(); };
+
+window.goBackToSetup = function () {
+    document.getElementById('level-select').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'flex';
+    touchInput.hide();
+    input.useTouch = false;
+    appState = 'SETUP';
+};
 
 function startGame() {
     document.getElementById('level-select').style.display = 'none';
     document.getElementById('ui-layer').style.display = 'flex';
+    if (input.useTouch) {
+        touchInput.show();
+        input.state.armed = true; // auto-arm in touch mode
+    }
 
     if (!physics) {
         physics = new PhysicsEngine();
@@ -166,10 +186,13 @@ window.addEventListener('keydown', (e) => {
             document.getElementById('msg-overlay').style.display = 'none';
             if (physics) physics.reset();
             input.keyThrottle = 0;
+            touchInput.hide();
             showLevelSelect();
         } else if (appState === 'LEVEL_SELECT') {
             document.getElementById('level-select').style.display = 'none';
             document.getElementById('setup-screen').style.display = 'flex';
+            touchInput.hide();
+            input.useTouch = false;
             appState = 'SETUP';
         }
     }
@@ -202,7 +225,7 @@ function animate() {
         document.getElementById('stat-mode').innerText = 'MODE: '+(modeNames[inp.flightMode]||'?');
         document.getElementById('stat-armed').innerText = inp.armed ? 'ARMED' : 'DISARMED';
         document.getElementById('stat-armed').style.color = inp.armed ? '#00ff00' : '#ff3333';
-        document.getElementById('stat-input').innerText = input.useKeyboard ? '⌨️ 鍵盤' : '🎮 搖桿';
+        document.getElementById('stat-input').innerText = input.useTouch ? '📱 觸控' : input.useKeyboard ? '⌨️ 鍵盤' : '🎮 搖桿';
 
         // 高度警告
         const altEl = document.getElementById('stat-alt');

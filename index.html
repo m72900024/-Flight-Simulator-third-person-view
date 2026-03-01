@@ -2,11 +2,11 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>LOS 飛行訓練 Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin:0; overflow:hidden; background:#000; font-family:'Segoe UI',sans-serif; user-select:none; }
+        body { margin:0; overflow:hidden; background:#000; font-family:'Segoe UI',sans-serif; user-select:none; touch-action:none; -webkit-user-select:none; }
 
         /* 設定畫面 */
         #setup-screen { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(20,20,20,0.95); z-index:1000; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; overflow-y:auto; }
@@ -58,6 +58,22 @@
 
         /* 鍵盤操作框 */
         .kb-box { margin-top:15px; padding:10px; background:#1a2a1a; border:1px solid #4a4; border-radius:8px; }
+
+        /* 觸控模式按鈕 */
+        .touch-box { margin-top:15px; padding:10px; background:#1a1a2a; border:1px solid #44a; border-radius:8px; }
+
+        /* 手機版面 */
+        @media (max-width: 768px) {
+            .monitor-box, .channel-row { display:none; }
+            .setup-box > div:has(#mode-display) { display:none; }
+            .setup-box > button[onclick="window.startGameApp()"] { display:none; }
+            #level-grid { grid-template-columns:repeat(2,1fr) !important; }
+            .level-card { padding:10px 8px; }
+            .level-num { font-size:24px; }
+            .level-desc { font-size:10px; }
+            #hud-top { font-size:12px; padding:8px 10px; }
+            #level-title { font-size:18px; }
+        }
     </style>
 </head>
 <body>
@@ -95,7 +111,10 @@
     <div id="level-select">
         <h2>🚁 選擇關卡</h2>
         <div id="level-grid"></div>
-        <div style="margin-top:20px;font-size:12px;color:#666;">ESC 返回設定</div>
+        <div style="margin-top:20px;font-size:12px;color:#666;">
+            <span id="level-select-esc-hint">ESC 返回設定</span>
+            <button id="level-select-back" style="display:none;background:#333;border:1px solid #555;color:#aaa;padding:6px 20px;border-radius:20px;font-size:13px;cursor:pointer;margin-top:8px;" onclick="window.goBackToSetup()">← 返回設定</button>
+        </div>
     </div>
 
     <div id="setup-screen">
@@ -167,10 +186,32 @@
                 <button class="start-btn" style="margin-top:10px;padding:8px 30px;font-size:14px;background:linear-gradient(to right,#44aa44,#88ff88);"
                     onclick="window.startKeyboard()">⌨️ 鍵盤模式</button>
             </div>
+            <div class="touch-box" id="touch-box">
+                <div style="font-size:13px;color:#88aaff;margin-bottom:8px;">📱 觸控操作</div>
+                <div style="font-size:11px;color:#aaa;text-align:left;line-height:1.8;">
+                    <b>左搖桿</b> 油門+轉向 &nbsp; <b>右搖桿</b> 俯仰+橫滾<br>
+                    <b>ARM 鍵</b> 解鎖/鎖定 &nbsp; <b>MODE 鍵</b> 切換模式
+                </div>
+                <button class="start-btn" style="margin-top:10px;padding:8px 30px;font-size:14px;background:linear-gradient(to right,#4444aa,#8888ff);"
+                    onclick="window.startTouch()">📱 觸控模式</button>
+            </div>
             <button class="start-btn" onclick="window.startGameApp()">🎮 搖桿模式</button>
         </div>
     </div>
 
+    <script>
+        if ('ontouchstart' in window) {
+            // Show back button and hide ESC hint on touch devices
+            var bb = document.getElementById('level-select-back');
+            if (bb) bb.style.display = 'inline-block';
+            var eh = document.getElementById('level-select-esc-hint');
+            if (eh) eh.style.display = 'none';
+        } else {
+            // Hide touch controls on non-touch devices
+            var tb = document.getElementById('touch-box');
+            if (tb) tb.style.display = 'none';
+        }
+    </script>
     <script type="module" src="./src/main.js"></script>
 </body>
 </html>

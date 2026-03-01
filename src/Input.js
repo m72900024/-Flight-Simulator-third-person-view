@@ -1,14 +1,19 @@
 import { CONFIG, FLIGHT_MODES } from './Config.js';
+import { touchInput } from './TouchInput.js';
 
 export class InputController {
     constructor() {
-        this.state = { 
-            t: 0, r: 0, p: 0, y: 0, 
+        this.state = {
+            t: 0, r: 0, p: 0, y: 0,
             armed: false,
             flightMode: FLIGHT_MODES.ANGLE
         };
         this.gamepadIndex = null;
         this.useKeyboard = false; // 鍵盤模式開關
+        this.useTouch = false;    // 觸控模式開關
+
+        // Link touch input to our state for arm/mode buttons
+        touchInput.linkState(this.state);
 
         // --- 鍵盤狀態 ---
         this.keys = {};
@@ -188,8 +193,20 @@ export class InputController {
         return this.state;
     }
 
+    updateTouch() {
+        const v = touchInput.update();
+        this.state.t = v.t;
+        this.state.y = v.y;
+        this.state.p = v.p;
+        this.state.r = v.r;
+        // armed and flightMode are set directly by touch buttons via linkState
+        return this.state;
+    }
+
     update() {
-        if (this.useKeyboard) {
+        if (this.useTouch) {
+            return this.updateTouch();
+        } else if (this.useKeyboard) {
             return this.updateKeyboard();
         } else {
             return this.updateGamepad();

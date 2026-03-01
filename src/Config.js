@@ -1,9 +1,9 @@
 export const FLIGHT_MODES = { ACRO: 0, ANGLE: 1, HORIZON: 2, ALT_HOLD: 3 };
 
 export const CONFIG = {
-    gravity: 9.81, mass: 0.6, maxThrust: 28.0, dragCoeff: 0.04,
-    angularDrag: 8.0, hardDeck: 0.05, maxHeight: 50,
-    thrustPower: 18, thrustExpo: 0.3, rates: 1.2, superRate: 0.7,
+    gravity: 9.81, mass: 0.6, maxThrust: 28.0, dragCoeff: 0.015,
+    angularDrag: 15, hardDeck: 0.05, maxHeight: 50,
+    thrustPower: 24, thrustExpo: 0.3, rates: 1.2, superRate: 0.7,
     maxTiltAngle: 55, droneScale: 3.0,
     axes: { thrust: 2, yaw: 0, pitch: 1, roll: 3, arm: 4, mode: 5 },
     invert: { t: false, r: false, e: true, a: false },

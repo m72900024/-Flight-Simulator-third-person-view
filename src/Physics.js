@@ -114,72 +114,87 @@ export class PhysicsEngine {
             this.rotVel.lerp(targetRotVel, angDrag * dt);
 
         } else if (input.flightMode === FLIGHT_MODES.ANGLE) {
-            // [自穩模式] 將搖桿映射為目標角度 (Euler Angles)
+            // [自穩模式] Spring-damper attitude control
             const maxTilt = THREE.MathUtils.degToRad(CONFIG.maxTiltAngle);
             const targetPitch = input.p * maxTilt;
             const targetRoll = -input.r * maxTilt;
-            
-            // 取得當前 Yaw (我們不希望自穩改變機頭方向，只改平穩)
+
             const euler = new THREE.Euler().setFromQuaternion(this.quat, 'YXZ');
-            const targetEuler = new THREE.Euler(targetPitch, euler.y, targetRoll, 'YXZ');
-            const targetQuat = new THREE.Quaternion().setFromEuler(targetEuler);
-            
-            // 使用 Slerp 平滑插值回到目標角度
-            this.quat.slerp(targetQuat, 5.0 * dt);
-            
-            // 在自穩模式下，Yaw 依然是角速度控制
-            const yawRate = input.y * maxRate * 0.5;
-            const qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), yawRate * dt);
-            this.quat.premultiply(qYaw);
-            
-            this.rotVel.set(0,0,0); // 自穩時不累積物理角速度
+
+            // Spring-damper: angVel = kP * error - kD * currentAngVel
+            const kP = 12.0, kD = 0.6;
+            const pitchError = targetPitch - euler.x;
+            const rollError  = targetRoll  - euler.z;
+            this.rotVel.x = kP * pitchError - kD * this.rotVel.x;
+            this.rotVel.z = kP * rollError  - kD * this.rotVel.z;
+
+            // Yaw: rate control
+            this.rotVel.y = input.y * maxRate * 0.7;
+
+            // Apply rotation via rotVel (same as ACRO)
+            const theta = this.rotVel.length() * dt;
+            if (theta > 0.0001) {
+                const axis = this.rotVel.clone().normalize();
+                const qStep = new THREE.Quaternion().setFromAxisAngle(axis, theta);
+                this.quat.multiply(qStep);
+            }
 
         } else if (input.flightMode === FLIGHT_MODES.ALT_HOLD) {
-            // [定高模式] 姿態控制與 ANGLE 模式相同（自穩）
+            // [定高模式] Spring-damper attitude (same as ANGLE)
             const maxTilt = THREE.MathUtils.degToRad(CONFIG.maxTiltAngle);
             const targetPitch = input.p * maxTilt;
             const targetRoll = -input.r * maxTilt;
 
             const euler = new THREE.Euler().setFromQuaternion(this.quat, 'YXZ');
-            const targetEuler = new THREE.Euler(targetPitch, euler.y, targetRoll, 'YXZ');
-            const targetQuat = new THREE.Quaternion().setFromEuler(targetEuler);
 
-            this.quat.slerp(targetQuat, 5.0 * dt);
+            const kP = 12.0, kD = 0.6;
+            const pitchError = targetPitch - euler.x;
+            const rollError  = targetRoll  - euler.z;
+            this.rotVel.x = kP * pitchError - kD * this.rotVel.x;
+            this.rotVel.z = kP * rollError  - kD * this.rotVel.z;
 
-            const yawRate = input.y * maxRate * 0.5;
-            const qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), yawRate * dt);
-            this.quat.premultiply(qYaw);
+            this.rotVel.y = input.y * maxRate * 0.7;
 
-            this.rotVel.set(0,0,0);
+            const theta = this.rotVel.length() * dt;
+            if (theta > 0.0001) {
+                const axis = this.rotVel.clone().normalize();
+                const qStep = new THREE.Quaternion().setFromAxisAngle(axis, theta);
+                this.quat.multiply(qStep);
+            }
 
         } else if (input.flightMode === FLIGHT_MODES.HORIZON) {
-            // [半自穩模式] 混合邏輯
-            // 搖桿推到底 (deflection = 1) -> 變成 Acro
-            // 搖桿在中間 (deflection = 0) -> 變成 Angle
-            
-            const stickDeflection = Math.max(Math.abs(input.p), Math.abs(input.r));
-            const blendFactor = Math.pow(stickDeflection, 3); // 三次方曲線，讓中間更穩，邊緣更靈敏
+            // [半自穩模式] Betaflight-style HORIZON blend
+            const maxTilt = THREE.MathUtils.degToRad(CONFIG.maxTiltAngle);
 
-            // 1. 計算 Acro 想要怎麼轉 (使用 SuperRate)
+            // 1. Acro target rates (with SuperRate)
             const acroTarget = new THREE.Vector3(
                 Math.sign(input.p) * calcRate(input.p),
                 Math.sign(input.y) * calcRate(input.y),
                 -Math.sign(input.r) * calcRate(input.r)
             );
-            
-            // 2. 計算 Angle 想要怎麼轉 (簡單模擬回正力)
-            const euler = new THREE.Euler().setFromQuaternion(this.quat, 'YXZ');
-            const angleCorrectP = (0 - euler.x) * 5.0; // P 回正
-            const angleCorrectR = (0 - euler.z) * 5.0; // R 回正
-            
-            // 3. 混合
-            // 如果 blendFactor 是 0 (中間)，完全用回正力
-            // 如果 blendFactor 是 1 (推到底)，完全用 Acro 力
-            this.rotVel.x = THREE.MathUtils.lerp(angleCorrectP, acroTarget.x, blendFactor);
-            this.rotVel.z = THREE.MathUtils.lerp(angleCorrectR, acroTarget.z, blendFactor);
-            this.rotVel.y = acroTarget.y; // Yaw 始終是手動
 
-            // 應用旋轉
+            // 2. Angle correction targets stick-commanded angle (not zero!)
+            const euler = new THREE.Euler().setFromQuaternion(this.quat, 'YXZ');
+            const targetPitch = input.p * maxTilt;
+            const targetRoll  = -input.r * maxTilt;
+            const angleCorrectP = (targetPitch - euler.x) * 8.0;
+            const angleCorrectR = (targetRoll  - euler.z) * 8.0;
+
+            // 3. Per-axis Betaflight-style threshold + ramp
+            const horizonTransition = 0.75;
+            const calcLevelStrength = (deflection) => {
+                if (deflection <= horizonTransition) return 1.0;
+                return 1.0 - (deflection - horizonTransition) / (1.0 - horizonTransition);
+            };
+            const levelP = calcLevelStrength(Math.abs(input.p));
+            const levelR = calcLevelStrength(Math.abs(input.r));
+
+            // 4. Blend per-axis
+            this.rotVel.x = THREE.MathUtils.lerp(acroTarget.x, angleCorrectP, levelP);
+            this.rotVel.z = THREE.MathUtils.lerp(acroTarget.z, angleCorrectR, levelR);
+            this.rotVel.y = acroTarget.y; // Yaw always manual
+
+            // Apply rotation
             const theta = this.rotVel.length() * dt;
             if (theta > 0.0001) {
                 const axis = this.rotVel.clone().normalize();

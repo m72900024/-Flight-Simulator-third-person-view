@@ -120,11 +120,14 @@ export class InputController {
         this.state.t = this.keyThrottle;
 
         // 方向鍵：俯仰/橫滾（按住有值，放開回零）
+        // ANGLE/ALT_HOLD use smaller deflection for gentler control
+        const fm = this.state.flightMode;
+        const stickVal = (fm === FLIGHT_MODES.ANGLE || fm === FLIGHT_MODES.ALT_HOLD) ? 0.35 : 0.6;
         let pitch = 0, roll = 0, yaw = 0;
-        if (k['ArrowUp'])    pitch = -0.6;
-        if (k['ArrowDown'])  pitch =  0.6;
-        if (k['ArrowLeft'])  roll  = -0.6;
-        if (k['ArrowRight']) roll  =  0.6;
+        if (k['ArrowUp'])    pitch = -stickVal;
+        if (k['ArrowDown'])  pitch =  stickVal;
+        if (k['ArrowLeft'])  roll  = -stickVal;
+        if (k['ArrowRight']) roll  =  stickVal;
 
         // A/D 轉向
         if (k['KeyA']) yaw = -0.6;

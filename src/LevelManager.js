@@ -13,6 +13,11 @@ export class LevelManager {
         this.checkpoints = [];
         this.cpIndex = 0;
 
+        // Exam state (level 8)
+        this._examSteps = [];
+        this._examStepIndex = 0;
+        this._examHoverTimer = 0;
+
         // localStorage best times
         this.bestTimes = JSON.parse(localStorage.getItem('flightSimBest') || '{}');
     }
@@ -39,6 +44,9 @@ export class LevelManager {
         this.waypoints = [];
         this.wpMeshes = [];
         this.checkpoints = [];
+        this._examSteps = [];
+        this._examStepIndex = 0;
+        this._examHoverTimer = 0;
 
         const grp = this.scene.levelGroup;
         while (grp.children.length > 0) grp.remove(grp.children[0]);
@@ -59,7 +67,7 @@ export class LevelManager {
             case 5: this._setupWaypoints(grp, [[5,3,-5],[5,3,5],[-5,3,5],[-5,3,-5]]); break;
             case 6: this._setupGate(grp); break;
             case 7: this._setupFigure8(grp); break;
-            case 8: this._setupChallenge(grp); break;
+            case 8: this._setupExam(grp); break;
         }
     }
 
@@ -188,19 +196,118 @@ export class LevelManager {
         });
     }
 
-    _setupChallenge(grp) {
-        // 3 個門 + 航點 + 回降落場
-        const gates = [[0,3,-12],[8,3,-20],[-8,3,-20]];
-        gates.forEach(g => { grp.add(this._makeGate(g, [0,3,0])); });
-        const wps = [[0,3,-12],[8,3,-20],[-8,3,-20],[0,3,0]];
-        this.waypoints = wps;
-        this.wpMeshes = [];
-        this.wpIndex = 0;
-        wps.forEach((p,i) => {
-            const m = this._makeWpSphere(p, 0x444488);
-            grp.add(m); this.wpMeshes.push(m);
+    _makeCone(pos) {
+        const cone = new THREE.Mesh(
+            new THREE.ConeGeometry(0.4, 1, 8),
+            new THREE.MeshStandardMaterial({ color: 0xff8800, emissive: 0x662200 })
+        );
+        cone.position.set(pos[0], 0.5, pos[2]);
+        cone.castShadow = true;
+        return cone;
+    }
+
+    _makeTextLabel(text, pos) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ff8800';
+        ctx.font = 'bold 36px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 64, 32);
+        const tex = new THREE.CanvasTexture(canvas);
+        const mat = new THREE.SpriteMaterial({ map: tex });
+        const sprite = new THREE.Sprite(mat);
+        sprite.position.set(...pos);
+        sprite.scale.set(2, 1, 1);
+        return sprite;
+    }
+
+    _setupExam(grp) {
+        const P1 = [-5, 0, -5], P2 = [5, 0, -5], P3 = [5, 0, -15], P4 = [-5, 0, -15];
+        const ALT = 1.5;
+
+        // Orange cone markers at P1-P4 with labels
+        [{ pos: P1, label: 'P1' }, { pos: P2, label: 'P2' },
+         { pos: P3, label: 'P3' }, { pos: P4, label: 'P4' }].forEach(c => {
+            grp.add(this._makeCone(c.pos));
+            grp.add(this._makeTextLabel(c.label, [c.pos[0], 2.5, c.pos[2]]));
         });
-        this._highlightWp(0);
+
+        // Rectangle path lines: H -> P1 -> P2 -> P3 -> P4 -> H
+        const lineGeo = new THREE.BufferGeometry();
+        lineGeo.setAttribute('position', new THREE.Float32BufferAttribute([
+            0, 0.1, 0, P1[0], 0.1, P1[2], P2[0], 0.1, P2[2],
+            P3[0], 0.1, P3[2], P4[0], 0.1, P4[2], 0, 0.1, 0
+        ], 3));
+        grp.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({
+            color: 0xff8800, transparent: true, opacity: 0.5
+        })));
+
+        // 20-step exam sequence
+        this._examSteps = [
+            // Phase 1: 定點起降與四面停懸
+            { type: 'takeoff',  pos: [0, ALT, 0], label: '從 H 起飛至 1.5m 停懸' },
+            { type: 'hover_at', pos: [0, ALT, 0], label: '順時針轉 90° 停懸（面向右）' },
+            { type: 'hover_at', pos: [0, ALT, 0], label: '順時針轉 90° 停懸（面向後）' },
+            { type: 'hover_at', pos: [0, ALT, 0], label: '順時針轉 90° 停懸（面向左）' },
+            { type: 'hover_at', pos: [0, ALT, 0], label: '順時針轉 90° 停懸（面向前）' },
+            { type: 'land',     pos: [0, 0, 0],   label: '降落於 H' },
+            // Phase 2: 矩形航線（順時針）
+            { type: 'takeoff',  pos: [0, ALT, 0],         label: '從 H 起飛至 1.5m' },
+            { type: 'hover_at', pos: [0, ALT, 0],         label: '逆時針轉 90°（面向 P1）' },
+            { type: 'hover_at', pos: [P1[0], ALT, P1[2]], label: '飛往 P1 停懸，順時針轉 90°' },
+            { type: 'hover_at', pos: [P2[0], ALT, P2[2]], label: '飛往 P2 停懸，順時針轉 90°' },
+            { type: 'hover_at', pos: [P3[0], ALT, P3[2]], label: '飛往 P3 停懸，順時針轉 90°' },
+            { type: 'hover_at', pos: [P4[0], ALT, P4[2]], label: '飛往 P4 停懸，順時針轉 90°' },
+            { type: 'hover_at', pos: [0, ALT, 0],         label: '飛回 H 停懸' },
+            // Phase 2b: 矩形航線（逆時針）
+            { type: 'hover_at', pos: [0, ALT, 0],         label: '轉 180°（面向 P4）' },
+            { type: 'hover_at', pos: [P4[0], ALT, P4[2]], label: '飛往 P4 停懸，逆時針轉 90°' },
+            { type: 'hover_at', pos: [P3[0], ALT, P3[2]], label: '飛往 P3 停懸，逆時針轉 90°' },
+            { type: 'hover_at', pos: [P2[0], ALT, P2[2]], label: '飛往 P2 停懸，逆時針轉 90°' },
+            { type: 'hover_at', pos: [P1[0], ALT, P1[2]], label: '飛往 P1 停懸，逆時針轉 90°' },
+            { type: 'hover_at', pos: [0, ALT, 0],         label: '飛回 H，逆時針轉 90°（面向前）' },
+            { type: 'land',     pos: [0, 0, 0],           label: '降落於 H' },
+        ];
+        this._examStepIndex = 0;
+        this._examHoverTimer = 0;
+        document.getElementById('instruction').innerText =
+            `步驟 1/${this._examSteps.length}: ${this._examSteps[0].label}`;
+    }
+
+    _checkExam(dronePos, dt, pFill) {
+        const step = this._examSteps[this._examStepIndex];
+        if (!step) return;
+        const dx = dronePos.x - step.pos[0];
+        const dz = dronePos.z - step.pos[2];
+        const hDist = Math.sqrt(dx * dx + dz * dz);
+
+        if (step.type === 'land') {
+            if (dronePos.y < 0.3 && hDist < 2) this._advanceExamStep();
+        } else {
+            const vDist = Math.abs(dronePos.y - step.pos[1]);
+            if (hDist < 2 && vDist < 1) {
+                this._examHoverTimer += dt;
+                if (this._examHoverTimer >= 3) this._advanceExamStep();
+            } else {
+                this._examHoverTimer = Math.max(0, this._examHoverTimer - dt * 0.5);
+            }
+        }
+        pFill.style.width = (this._examStepIndex / this._examSteps.length * 100) + '%';
+    }
+
+    _advanceExamStep() {
+        this._examStepIndex++;
+        this._examHoverTimer = 0;
+        if (this._examStepIndex >= this._examSteps.length) {
+            this._complete();
+        } else {
+            const step = this._examSteps[this._examStepIndex];
+            document.getElementById('instruction').innerText =
+                `步驟 ${this._examStepIndex + 1}/${this._examSteps.length}: ${step.label}`;
+        }
     }
 
     checkWinCondition(dronePos, dt) {
@@ -235,7 +342,7 @@ export class LevelManager {
             pFill.style.width = Math.min(100, this.timer / 3 * 100) + '%';
             if (this.timer >= 3) this._complete();
 
-        } else if ((L >= 3 && L <= 5) || L === 8) {
+        } else if (L >= 3 && L <= 5) {
             const wp = this.waypoints[this.wpIndex];
             const dist = dronePos.distanceTo(new THREE.Vector3(...wp));
             if (dist < 1.8) {
@@ -265,6 +372,9 @@ export class LevelManager {
                 }
             }
             pFill.style.width = (this.cpIndex / this.checkpoints.length * 100) + '%';
+
+        } else if (L === 8) {
+            this._checkExam(dronePos, dt, pFill);
         }
     }
 

@@ -66,7 +66,7 @@ class TouchInput {
         // Mode button (top-left)
         this._modeBtn = document.createElement('div');
         this._modeBtn.style.cssText = 'position:fixed;top:15px;left:15px;width:60px;height:60px;border-radius:50%;background:rgba(0,100,200,0.5);border:2px solid rgba(100,180,255,0.5);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;color:#fff;pointer-events:auto;cursor:pointer;z-index:910;text-align:center;line-height:1.2;user-select:none;-webkit-user-select:none;';
-        this._modeBtn.innerText = 'ANGLE';
+        this._modeBtn.innerText = '自穩';
         c.appendChild(this._modeBtn);
 
         // Reset button (top-center)
@@ -124,7 +124,7 @@ class TouchInput {
     _cycleMode() {
         if (!this._state) return;
         const modes = [FLIGHT_MODES.ANGLE, FLIGHT_MODES.HORIZON, FLIGHT_MODES.ACRO, FLIGHT_MODES.ALT_HOLD];
-        const names = ['ANGLE', 'HORIZON', 'ACRO', 'ALT\nHOLD'];
+        const names = ['自穩', '半自穩', '手動', '定高'];
         const idx = modes.indexOf(this._state.flightMode);
         const next = (idx + 1) % modes.length;
         this._state.flightMode = modes[next];
@@ -280,7 +280,7 @@ class TouchInput {
         if (this._state) {
             this._updateArmBtn(this._state.armed);
             // Update mode button text
-            const names = { [FLIGHT_MODES.ANGLE]: 'ANGLE', [FLIGHT_MODES.HORIZON]: 'HORIZON', [FLIGHT_MODES.ACRO]: 'ACRO', [FLIGHT_MODES.ALT_HOLD]: 'ALT\nHOLD' };
+            const names = { [FLIGHT_MODES.ANGLE]: '自穩', [FLIGHT_MODES.HORIZON]: '半自穩', [FLIGHT_MODES.ACRO]: '手動', [FLIGHT_MODES.ALT_HOLD]: '定高' };
             this._modeBtn.innerText = names[this._state.flightMode] || '?';
         }
 

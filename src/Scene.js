@@ -222,3 +222,8 @@ export class GameScene {
 
     render() { this.renderer.render(this.scene, this.camera); }
 }
+
+// Reset camera target (call when switching levels)
+GameScene.prototype.resetCamera = function() {
+    this.cameraTarget.set(0, 1, 0);
+};

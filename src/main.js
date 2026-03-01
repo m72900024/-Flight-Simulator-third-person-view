@@ -138,6 +138,7 @@ function startGame() {
         levelManager = new LevelManager(gameScene);
     }
     physics.reset();
+    if (gameScene) gameScene.resetCamera();
     levelManager.loadLevel(selectedLevel);
     appState = 'GAME';
     clock.start();
@@ -185,6 +186,8 @@ window.addEventListener('keydown', (e) => {
             document.getElementById('ui-layer').style.display = 'none';
             document.getElementById('msg-overlay').style.display = 'none';
             if (physics) physics.reset();
+            if (gameScene) gameScene.resetCamera();
+    if (gameScene) gameScene.resetCamera();
             input.keyThrottle = 0;
             touchInput.hide();
             showLevelSelect();
@@ -204,7 +207,9 @@ window.addEventListener('resize', () => {
         gameScene.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 });
-window.addEventListener('reset-drone', () => { if (physics) physics.reset(); });
+window.addEventListener('reset-drone', () => { if (physics) physics.reset();
+            if (gameScene) gameScene.resetCamera();
+    if (gameScene) gameScene.resetCamera(); });
 
 // --- 主迴圈 ---
 function animate() {

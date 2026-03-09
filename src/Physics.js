@@ -8,6 +8,13 @@ export class PhysicsEngine {
         this.rotVel = new THREE.Vector3(0, 0, 0); // 角速度
         this.crashIntensity = 0;
         this.altHoldTarget = null;
+        
+        // Pre-allocated temporary objects to reduce GC pressure
+        this._tmpVec1 = new THREE.Vector3();
+        this._tmpVec2 = new THREE.Vector3();
+        this._tmpVec3 = new THREE.Vector3();
+        this._tmpQuat = new THREE.Quaternion();
+        this._tmpEuler = new THREE.Euler();
     }
 
     reset() {
@@ -53,8 +60,9 @@ export class PhysicsEngine {
             }
         }
 
-        const thrustDir = new THREE.Vector3(0, 1, 0).applyQuaternion(this.quat);
-        const force = thrustDir.multiplyScalar(thrustMag);
+        // Reuse tmpVec1 for thrust direction
+        this._tmpVec1.set(0, 1, 0).applyQuaternion(this.quat);
+        const force = this._tmpVec1.multiplyScalar(thrustMag);
 
         // 重力
         force.y -= CONFIG.mass * CONFIG.gravity;
@@ -62,11 +70,13 @@ export class PhysicsEngine {
         // 空氣阻力 (二次方阻力，速度越快阻力越大)
         const speed = this.vel.length();
         if (speed > 0.01) {
-            const drag = this.vel.clone().normalize().multiplyScalar(-CONFIG.dragCoeff * speed * speed);
-            force.add(drag);
+            // Reuse tmpVec2 for drag calculation
+            this._tmpVec2.copy(this.vel).normalize().multiplyScalar(-CONFIG.dragCoeff * speed * speed);
+            force.add(this._tmpVec2);
         }
         
-        const accel = force.divideScalar(CONFIG.mass);
+        // Reuse tmpVec3 for acceleration
+        const accel = this._tmpVec3.copy(force).divideScalar(CONFIG.mass);
         this.vel.add(accel.multiplyScalar(dt));
         this.pos.add(this.vel.clone().multiplyScalar(dt));
 
@@ -104,14 +114,15 @@ export class PhysicsEngine {
         
         if (input.flightMode === FLIGHT_MODES.ACRO) {
             // [手動模式] Betaflight 風格角速度控制
-            const targetRotVel = new THREE.Vector3(
+            // Reuse tmpVec1 for target rotation velocity
+            this._tmpVec1.set(
                 Math.sign(input.p) * calcRate(input.p),
                 Math.sign(input.y) * calcRate(input.y),
                 -Math.sign(input.r) * calcRate(input.r)
             );
             // 角速度阻尼：鬆桿後自然停轉
             const angDrag = CONFIG.angularDrag || 5;
-            this.rotVel.lerp(targetRotVel, angDrag * dt);
+            this.rotVel.lerp(this._tmpVec1, angDrag * dt);
 
         } else if (input.flightMode === FLIGHT_MODES.ANGLE) {
             // [自穩模式] Spring-damper attitude control
@@ -131,12 +142,12 @@ export class PhysicsEngine {
             // Yaw: rate control
             this.rotVel.y = input.y * maxRate * 0.7;
 
-            // Apply rotation via rotVel (same as ACRO)
+            // Apply rotation via rotVel (same as ACRO) - reuse tmpVec2 and tmpQuat
             const theta = this.rotVel.length() * dt;
             if (theta > 0.0001) {
-                const axis = this.rotVel.clone().normalize();
-                const qStep = new THREE.Quaternion().setFromAxisAngle(axis, theta);
-                this.quat.multiply(qStep);
+                this._tmpVec2.copy(this.rotVel).normalize();
+                this._tmpQuat.setFromAxisAngle(this._tmpVec2, theta);
+                this.quat.multiply(this._tmpQuat);
             }
 
         } else if (input.flightMode === FLIGHT_MODES.ALT_HOLD) {
@@ -157,28 +168,27 @@ export class PhysicsEngine {
 
             const theta = this.rotVel.length() * dt;
             if (theta > 0.0001) {
-                const axis = this.rotVel.clone().normalize();
-                const qStep = new THREE.Quaternion().setFromAxisAngle(axis, theta);
-                this.quat.multiply(qStep);
+                this._tmpVec2.copy(this.rotVel).normalize();
+                this._tmpQuat.setFromAxisAngle(this._tmpVec2, theta);
+                this.quat.multiply(this._tmpQuat);
             }
 
         } else if (input.flightMode === FLIGHT_MODES.HORIZON) {
             // [半自穩模式] Betaflight-style HORIZON blend
             const maxTilt = THREE.MathUtils.degToRad(CONFIG.maxTiltAngle);
 
-            // 1. Acro target rates (with SuperRate)
-            const acroTarget = new THREE.Vector3(
+            // 1. Acro target rates (with SuperRate) - reuse tmpVec1
+            this._tmpVec1.set(
                 Math.sign(input.p) * calcRate(input.p),
                 Math.sign(input.y) * calcRate(input.y),
                 -Math.sign(input.r) * calcRate(input.r)
             );
 
-            // 2. Angle correction targets stick-commanded angle (not zero!)
-            const euler = new THREE.Euler().setFromQuaternion(this.quat, 'YXZ');
+            // 2. Angle correction targets stick-commanded angle (not zero!) - reuse tmpEuler
             const targetPitch = input.p * maxTilt;
             const targetRoll  = -input.r * maxTilt;
-            const angleCorrectP = (targetPitch - euler.x) * 8.0;
-            const angleCorrectR = (targetRoll  - euler.z) * 8.0;
+            const angleCorrectP = (targetPitch - this._tmpEuler.x) * 8.0;
+            const angleCorrectR = (targetRoll  - this._tmpEuler.z) * 8.0;
 
             // 3. Per-axis Betaflight-style threshold + ramp
             const horizonTransition = 0.75;
@@ -190,16 +200,16 @@ export class PhysicsEngine {
             const levelR = calcLevelStrength(Math.abs(input.r));
 
             // 4. Blend per-axis
-            this.rotVel.x = THREE.MathUtils.lerp(acroTarget.x, angleCorrectP, levelP);
-            this.rotVel.z = THREE.MathUtils.lerp(acroTarget.z, angleCorrectR, levelR);
-            this.rotVel.y = acroTarget.y; // Yaw always manual
+            this.rotVel.x = THREE.MathUtils.lerp(this._tmpVec1.x, angleCorrectP, levelP);
+            this.rotVel.z = THREE.MathUtils.lerp(this._tmpVec1.z, angleCorrectR, levelR);
+            this.rotVel.y = this._tmpVec1.y; // Yaw always manual
 
             // Apply rotation
             const theta = this.rotVel.length() * dt;
             if (theta > 0.0001) {
-                const axis = this.rotVel.clone().normalize();
-                const qStep = new THREE.Quaternion().setFromAxisAngle(axis, theta);
-                this.quat.multiply(qStep);
+                this._tmpVec2.copy(this.rotVel).normalize();
+                this._tmpQuat.setFromAxisAngle(this._tmpVec2, theta);
+                this.quat.multiply(this._tmpQuat);
             }
         }
 
@@ -207,9 +217,9 @@ export class PhysicsEngine {
         if (input.flightMode === FLIGHT_MODES.ACRO) {
             const theta = this.rotVel.length() * dt;
             if (theta > 0.0001) {
-                const axis = this.rotVel.clone().normalize();
-                const qStep = new THREE.Quaternion().setFromAxisAngle(axis, theta);
-                this.quat.multiply(qStep);
+                this._tmpVec2.copy(this.rotVel).normalize();
+                this._tmpQuat.setFromAxisAngle(this._tmpVec2, theta);
+                this.quat.multiply(this._tmpQuat);
             }
         }
 

@@ -497,7 +497,7 @@ export class LevelManager {
     }
 
     static getUnlockedLevel() {
-        return 8; // 全部解鎖（debug）
+        return parseInt(localStorage.getItem('flightSimUnlocked')) || 1;
     }
 
     static setUnlockedLevel(level) {

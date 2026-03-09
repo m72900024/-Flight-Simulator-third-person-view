@@ -12,6 +12,9 @@ let appState = 'SETUP';
 let isGamepadInit = false;
 let selectedLevel = 1;
 
+// DOM Cache for game loop
+let domCache = {};
+
 // --- 選單初始化 ---
 function initSelects(gamepad) {
     if (isGamepadInit) return;
@@ -127,6 +130,19 @@ window.goBackToSetup = function () {
 function startGame() {
     document.getElementById('level-select').style.display = 'none';
     document.getElementById('ui-layer').style.display = 'flex';
+    
+    // Cache DOM elements for game loop
+    domCache = {
+        statThr: document.getElementById('stat-thr'),
+        statAlt: document.getElementById('stat-alt'),
+        statMode: document.getElementById('stat-mode'),
+        statArmed: document.getElementById('stat-armed'),
+        statInput: document.getElementById('stat-input'),
+        statDist: document.getElementById('stat-dist'),
+        statHeading: document.getElementById('stat-heading'),
+        levelTitle: document.getElementById('level-title')
+    };
+    
     if (input.useTouch) {
         touchInput.show();
         input.state.armed = true; // auto-arm in touch mode
@@ -187,7 +203,6 @@ window.addEventListener('keydown', (e) => {
             document.getElementById('msg-overlay').style.display = 'none';
             if (physics) physics.reset();
             if (gameScene) gameScene.resetCamera();
-    if (gameScene) gameScene.resetCamera();
             input.keyThrottle = 0;
             touchInput.hide();
             showLevelSelect();
@@ -208,8 +223,7 @@ window.addEventListener('resize', () => {
     }
 });
 window.addEventListener('reset-drone', () => { if (physics) physics.reset();
-            if (gameScene) gameScene.resetCamera();
-    if (gameScene) gameScene.resetCamera(); });
+            if (gameScene) gameScene.resetCamera(); });
 
 // --- 主迴圈 ---
 function animate() {
@@ -224,28 +238,26 @@ function animate() {
         gameScene.updateDrone(physics.pos, physics.quat, inp.t, physics.crashIntensity);
         levelManager.checkWinCondition(physics.pos, dt);
 
-        document.getElementById('stat-thr').innerText = `THR: ${Math.round(inp.t*100)}%`;
-        document.getElementById('stat-alt').innerText = `ALT: ${physics.pos.y.toFixed(1)}m`;
+        domCache.statThr.innerText = `THR: ${Math.round(inp.t*100)}%`;
+        domCache.statAlt.innerText = `ALT: ${physics.pos.y.toFixed(1)}m`;
 
         const modeNames = {[FLIGHT_MODES.ANGLE]:'自穩',[FLIGHT_MODES.HORIZON]:'半自穩',[FLIGHT_MODES.ACRO]:'手動',[FLIGHT_MODES.ALT_HOLD]:'定高'};
-        document.getElementById('stat-mode').innerText = 'MODE: '+(modeNames[inp.flightMode]||'?');
-        document.getElementById('stat-armed').innerText = inp.armed ? 'ARMED' : 'DISARMED';
-        document.getElementById('stat-armed').style.color = inp.armed ? '#00ff00' : '#ff3333';
-        document.getElementById('stat-input').innerText = input.useTouch ? '📱 觸控' : input.useKeyboard ? '⌨️ 鍵盤' : '🎮 搖桿';
+        domCache.statMode.innerText = 'MODE: '+(modeNames[inp.flightMode]||'?');
+        domCache.statArmed.innerText = inp.armed ? 'ARMED' : 'DISARMED';
+        domCache.statArmed.style.color = inp.armed ? '#00ff00' : '#ff3333';
+        domCache.statInput.innerText = input.useTouch ? '📱 觸控' : input.useKeyboard ? '⌨️ 鍵盤' : '🎮 搖桿';
 
         // 高度警告
-        const altEl = document.getElementById('stat-alt');
-        if (physics.pos.y > CONFIG.maxHeight*0.8) { altEl.style.color='#ff3333'; altEl.innerText+=' ⚠️'; }
-        else if (physics.pos.y > CONFIG.maxHeight*0.5) altEl.style.color='#ffaa00';
-        else altEl.style.color='#aaa';
+        if (physics.pos.y > CONFIG.maxHeight*0.8) { domCache.statAlt.style.color='#ff3333'; domCache.statAlt.innerText+=' ⚠️'; }
+        else if (physics.pos.y > CONFIG.maxHeight*0.5) domCache.statAlt.style.color='#ffaa00';
+        else domCache.statAlt.style.color='#aaa';
 
         // Distance to active waypoint
-        const distEl = document.getElementById('stat-dist');
         if (levelManager.activeTarget) {
             const d = physics.pos.distanceTo(levelManager.activeTarget);
-            distEl.innerText = `距離: ${d.toFixed(1)}m`;
+            domCache.statDist.innerText = `距離: ${d.toFixed(1)}m`;
         } else {
-            distEl.innerText = '距離: --';
+            domCache.statDist.innerText = '距離: --';
         }
 
         // Compass heading from drone quaternion
@@ -255,11 +267,11 @@ function animate() {
         yawDeg = ((yawDeg % 360) + 360) % 360; // normalize to 0-360
         const dirs = ['N','NE','E','SE','S','SW','W','NW'];
         const dirIdx = Math.round(yawDeg / 45) % 8;
-        document.getElementById('stat-heading').innerText = `方向: ${dirs[dirIdx]}`;
+        domCache.statHeading.innerText = `方向: ${dirs[dirIdx]}`;
 
         gameScene.render();
       } catch(e) {
-        document.getElementById('level-title').innerText = 'ERROR: ' + e.message;
+        if (domCache.levelTitle) domCache.levelTitle.innerText = 'ERROR: ' + e.message;
         console.error('Game loop error:', e);
       }
     }

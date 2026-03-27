@@ -170,7 +170,7 @@ export class InputController {
             }
             val = val - offset;
             val = Math.max(-1, Math.min(1, val));
-            if (Math.abs(val) < 0.05) val = 0;
+            if (Math.abs(val) < 0.12) val = 0;
             return invert ? -val : val;
         };
 
@@ -222,8 +222,11 @@ export class InputController {
             // 往上推 axis 變負，往下拉變正 → thrust = (1 - axisVal) / 2
             let thrust = (1 - axisVal) / 2;
             // deadzone around center (~0.5)
-            if (Math.abs(thrust - 0.5) < 0.05) thrust = 0.5;
-            this.state.t = Math.max(0, Math.min(1, thrust));
+            if (Math.abs(thrust - 0.5) < 0.12) thrust = 0.5;
+            // 低通濾波：平滑雜訊
+            this._thrSmooth = this._thrSmooth !== undefined ? this._thrSmooth : thrust;
+            this._thrSmooth += (thrust - this._thrSmooth) * 0.15;
+            this.state.t = Math.max(0, Math.min(1, this._thrSmooth));
         }
 
         // W/S 鍵盤油門也保留（可以同時用鍵盤控油門）
@@ -243,7 +246,7 @@ export class InputController {
             ? window._gpAxisConfig.yaw : 0;
         if (gp && gp.axes[yawAxis] !== undefined) {
             let yaw = gp.axes[yawAxis];
-            if (Math.abs(yaw) < 0.05) yaw = 0;
+            if (Math.abs(yaw) < 0.12) yaw = 0;
             this.state.y = Math.max(-1, Math.min(1, yaw));
         }
 

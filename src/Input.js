@@ -193,9 +193,14 @@ export class InputController {
         this.state.p = readAxis(ax.pitch, inv.e, cal.pitch, 'pitch');
         this.state.y = readAxis(ax.yaw, inv.r, cal.yaw, 'yaw');
 
-        // 解鎖
-        const armVal = gp.axes[ax.arm] || -1;
-        this.state.armed = armVal > 0.5;
+        // 解鎖：arm 軸未設定時自動解鎖（Space 鍵仍可切換）
+        if (ax.arm === -1 || ax.arm === undefined) {
+            if (this.state.armed === undefined) this.state.armed = false;
+            // 保持現有狀態（由 Space 鍵控制）
+        } else {
+            const armVal = gp.axes[ax.arm] || -1;
+            this.state.armed = armVal > 0.5;
+        }
 
         // 模式切換（四段開關）
         const modeVal = gp.axes[ax.mode] || -1;

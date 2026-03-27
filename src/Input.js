@@ -12,6 +12,8 @@ export class InputController {
         this.useKeyboard = false; // 鍵盤模式開關
         this.useTouch = false;    // 觸控模式開關
         this.useHybrid = false;   // 混合模式（左手把+鍵盤）
+        this._hybridPitch = 0;    // 混合模式俯仰平滑值
+        this._hybridRoll = 0;     // 混合模式橫滾平滑值
 
         // Link touch input to our state for arm/mode buttons
         touchInput.linkState(this.state);
@@ -245,14 +247,37 @@ export class InputController {
             this.state.y = Math.max(-1, Math.min(1, yaw));
         }
 
-        // --- 俯仰/橫滾：鍵盤方向鍵 ---
+        // --- 俯仰/橫滾：鍵盤方向鍵優先，否則用手把數位按鈕 ---
         const fm = this.state.flightMode;
-        const stickVal = (fm === FLIGHT_MODES.ANGLE || fm === FLIGHT_MODES.ALT_HOLD) ? 0.35 : 0.6;
+        const kbStickVal = (fm === FLIGHT_MODES.ANGLE || fm === FLIGHT_MODES.ALT_HOLD) ? 0.35 : 0.6;
         let pitch = 0, roll = 0;
-        if (k['ArrowUp'])    pitch = -stickVal;
-        if (k['ArrowDown'])  pitch =  stickVal;
-        if (k['ArrowLeft'])  roll  = -stickVal;
-        if (k['ArrowRight']) roll  =  stickVal;
+        const kbPitch = k['ArrowUp'] || k['ArrowDown'];
+        const kbRoll  = k['ArrowLeft'] || k['ArrowRight'];
+
+        if (k['ArrowUp'])    pitch = -kbStickVal;
+        if (k['ArrowDown'])  pitch =  kbStickVal;
+        if (k['ArrowLeft'])  roll  = -kbStickVal;
+        if (k['ArrowRight']) roll  =  kbStickVal;
+
+        // 手把數位按鈕（B0~B3 / B12~B15），鍵盤沒按時才用
+        const gpStickVal = 0.5;
+        if (gp) {
+            const btn = (i) => gp.buttons[i] && gp.buttons[i].pressed;
+            // 取 B0~B3 和 B12~B15 的最大值
+            const btnUp    = btn(0) || btn(12);
+            const btnDown  = btn(1) || btn(13);
+            const btnLeft  = btn(2) || btn(14);
+            const btnRight = btn(3) || btn(15);
+
+            if (!kbPitch) {
+                if (btnUp)   pitch = -gpStickVal;
+                if (btnDown) pitch =  gpStickVal;
+            }
+            if (!kbRoll) {
+                if (btnLeft)  roll = -gpStickVal;
+                if (btnRight) roll =  gpStickVal;
+            }
+        }
 
         // Shift 精密模式
         if (k['ShiftLeft'] || k['ShiftRight']) {
@@ -260,8 +285,14 @@ export class InputController {
             roll *= 0.4;
         }
 
-        this.state.p = Math.max(-1, Math.min(1, pitch));
-        this.state.r = Math.max(-1, Math.min(1, roll));
+        // 平滑插值
+        const targetPitch = pitch;
+        const targetRoll = roll;
+        const smoothing = 8;
+        this._hybridPitch += (targetPitch - this._hybridPitch) * Math.min(1, smoothing * dt);
+        this._hybridRoll += (targetRoll - this._hybridRoll) * Math.min(1, smoothing * dt);
+        this.state.p = Math.max(-1, Math.min(1, this._hybridPitch));
+        this.state.r = Math.max(-1, Math.min(1, this._hybridRoll));
 
         return this.state;
     }

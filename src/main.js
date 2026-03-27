@@ -234,6 +234,93 @@ window.detectAxis = function (channel) {
     }, 1500);
 };
 
+window.autoDetectAll = async function() {
+    const btn = document.getElementById("auto-detect-btn");
+    btn.innerText = "🔄 偵測中...請搖動左搖桿 3 秒";
+    btn.style.background = "#aa8800";
+    btn.disabled = true;
+
+    const gp = navigator.getGamepads()[0];
+    if (!gp) {
+        btn.innerText = "❌ 未偵測到手把";
+        btn.disabled = false;
+        return;
+    }
+
+    // 記錄基準值
+    const baseline = Array.from(gp.axes);
+    const maxDelta = new Array(gp.axes.length).fill(0);
+
+    // 監聽 3 秒
+    const interval = setInterval(() => {
+        const g = navigator.getGamepads()[0];
+        if (!g) return;
+        g.axes.forEach((v, i) => {
+            const d = Math.abs(v - baseline[i]);
+            if (d > maxDelta[i]) maxDelta[i] = d;
+        });
+    }, 50);
+
+    await new Promise(r => setTimeout(r, 3000));
+    clearInterval(interval);
+
+    // 找出位移最大的兩個軸
+    const sorted = maxDelta
+        .map((d, i) => ({ i, d }))
+        .sort((a, b) => b.d - a.d);
+
+    const active = sorted.filter(x => x.d > 0.1);
+
+    if (active.length < 2) {
+        btn.innerText = "⚠️ 偵測到的軸不夠，請重試";
+        btn.disabled = false;
+        return;
+    }
+
+    // 判斷哪個軸是油門（上下），哪個是偏航（左右）
+    const axis1 = active[0].i;
+    const axis2 = active[1].i;
+
+    let thrAxis, yawAxis;
+    if (axis1 < axis2) {
+        yawAxis = axis1;
+        thrAxis = axis2;
+    } else {
+        yawAxis = axis2;
+        thrAxis = axis1;
+    }
+
+    // 更新 select 的值
+    const mapT = document.getElementById("map-t");
+    const mapR = document.getElementById("map-r");
+    if (mapT) { mapT.value = thrAxis; }
+    if (mapR) { mapR.value = yawAxis; }
+    window.updateMapping && window.updateMapping();
+
+    // 更新軸位標籤
+    document.getElementById("axis-label-thrust").innerText = "AXIS " + thrAxis;
+    document.getElementById("axis-label-thrust").style.color = "#00ffcc";
+    document.getElementById("axis-label-yaw").innerText = "AXIS " + yawAxis;
+    document.getElementById("axis-label-yaw").style.color = "#00ffcc";
+
+    // 右搖桿沒有類比軸 → 自動勾選混合模式
+    if (active.length < 4) {
+        const hybridCheck = document.getElementById("hybrid-mode-check");
+        if (hybridCheck) hybridCheck.checked = true;
+        document.getElementById("axis-label-pitch").innerText = "← 方向鍵";
+        document.getElementById("axis-label-pitch").style.color = "#ffaa00";
+        document.getElementById("axis-label-roll").innerText = "← 方向鍵";
+        document.getElementById("axis-label-roll").style.color = "#ffaa00";
+    }
+
+    // 儲存設定
+    window._gpAxisConfig = { thrust: thrAxis, yaw: yawAxis };
+
+    btn.innerText = "✅ 配置完成！可以開始飛行";
+    btn.style.background = "#2a5a2a";
+    btn.disabled = false;
+};
+
 window.goBackToSetup = function () {
     document.getElementById('level-select').style.display = 'none';
     document.getElementById('setup-screen').style.display = 'flex';

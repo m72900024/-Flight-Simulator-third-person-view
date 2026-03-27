@@ -193,6 +193,16 @@
                 <div id="gp-detect-area" style="font-size:11px;color:#888;margin-bottom:8px;">請插入手把並按任意按鈕...</div>
 
                 <div id="gp-axis-setup" style="display:none;">
+                    <div style="margin-bottom:10px;">
+                        <button id="auto-detect-btn"
+                            onclick="window.autoDetectAll()"
+                            style="width:100%;padding:10px;background:#336;border:1px solid #66c;color:#aaf;font-size:14px;font-weight:bold;border-radius:8px;cursor:pointer;">
+                            🎯 一鍵自動配置（搖動左搖桿 3 秒）
+                        </button>
+                        <div style="font-size:10px;color:#666;margin-top:4px;text-align:center;">
+                            點擊後搖動左搖桿的上下和左右，自動偵測油門/偏航
+                        </div>
+                    </div>
                     <div class="axis-row">
                         <span class="axis-name">油門</span>
                         <span id="axis-label-thrust" class="axis-val">--</span>

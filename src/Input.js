@@ -193,9 +193,37 @@ export class InputController {
         this.state.p = readAxis(ax.pitch, inv.e, cal.pitch, 'pitch');
         this.state.y = readAxis(ax.yaw, inv.r, cal.yaw, 'yaw');
 
-        // 解鎖：arm 軸未設定時自動 ARMED（不需要按 Space）
+        // 解鎖：RC 真實遙控器方式
+        // 解鎖：左搖桿推到左下角（油門最低 + 偏航最左）hold 2 秒 → armed
+        // 上鎖：左搖桿推到右下角（油門最低 + 偏航最右）hold 2 秒 → disarmed
         if (ax.arm === -1 || ax.arm === undefined) {
-            this.state.armed = true; // 自動解鎖
+            const thrRaw = gp.axes[ax.thrust] || 0;
+            const yawRaw = gp.axes[ax.yaw] || 0;
+            const thrDown = thrRaw > 0.7;   // 左搖桿往下拉
+            const yawLeft = yawRaw < -0.7;  // 左搖桿往左
+            const yawRight = yawRaw > 0.7;  // 左搖桿往右
+
+            if (!this.state.armed && thrDown && yawLeft) {
+                // 準備解鎖
+                if (!this._armHoldStart) this._armHoldStart = now_t;
+                if (now_t - this._armHoldStart > 2000) {
+                    this.state.armed = true;
+                    this._armHoldStart = null;
+                    window.dispatchEvent(new CustomEvent('input-mode-change', { detail: '🔓 已解鎖' }));
+                }
+            } else if (this.state.armed && thrDown && yawRight) {
+                // 準備上鎖
+                if (!this._disarmHoldStart) this._disarmHoldStart = now_t;
+                if (now_t - this._disarmHoldStart > 2000) {
+                    this.state.armed = false;
+                    this.state.t = 0;
+                    this._disarmHoldStart = null;
+                    window.dispatchEvent(new CustomEvent('input-mode-change', { detail: '🔒 已上鎖' }));
+                }
+            } else {
+                this._armHoldStart = null;
+                this._disarmHoldStart = null;
+            }
         } else {
             const armVal = gp.axes[ax.arm] || -1;
             this.state.armed = armVal > 0.5;

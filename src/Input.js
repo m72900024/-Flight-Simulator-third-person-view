@@ -174,11 +174,19 @@ export class InputController {
             return invert ? -val : val;
         };
 
-        // 油門
+        // 油門（速率模式：置中型搖桿，置中不動，往上加速，往下減速）
+        const now_t = performance.now();
+        const dt_t = this._lastGamepadTime ? (now_t - this._lastGamepadTime) / 1000 : 1/60;
+        this._lastGamepadTime = now_t;
+        if (this.state.t === undefined) this.state.t = 0;
+
         let rawThr = gp.axes[ax.thrust] || 0;
-        let mappedThr = this.mapToRange(rawThr, ep.thrust.min, ep.thrust.max);
-        if (inv.t) mappedThr = -mappedThr;
-        this.state.t = Math.max(0, Math.min(1, (mappedThr + 1) / 2));
+        // deadzone
+        if (Math.abs(rawThr) < 0.12) rawThr = 0;
+        if (inv.t) rawThr = -rawThr;
+        // 往上推(負值)=加速，往下拉(正值)=減速，置中=保持
+        const thrRate = 1.5; // 每秒增減速度（可調）
+        this.state.t = Math.max(0, Math.min(1, this.state.t - rawThr * thrRate * dt_t));
 
         // 姿態
         this.state.r = readAxis(ax.roll, inv.a, cal.roll, 'roll');

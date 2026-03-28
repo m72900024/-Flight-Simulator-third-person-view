@@ -59,6 +59,7 @@ export class LevelManager {
         this.activeTarget = null;
         this._gates = [];
         this._gateIndex = 0;
+        this._reusableTarget = new THREE.Vector3(); // reused in checkWinCondition
 
         const grp = this.scene.levelGroup;
         while (grp.children.length > 0) grp.remove(grp.children[0]);
@@ -456,7 +457,7 @@ export class LevelManager {
 
         } else if (L >= 3 && L <= 5) {
             const wp = this.waypoints[this.wpIndex];
-            const target = new THREE.Vector3(...wp);
+            const target = this._reusableTarget.set(wp[0], wp[1], wp[2]);
             this.activeTarget = target;
             this._updateGuideLine(dronePos, target);
             const dist = dronePos.distanceTo(target);
@@ -490,7 +491,7 @@ export class LevelManager {
 
         } else if (L === 7) {
             const cp = this.checkpoints[this.cpIndex];
-            const target = new THREE.Vector3(...cp);
+            const target = this._reusableTarget.set(cp[0], cp[1], cp[2]);
             this.activeTarget = target;
             this._updateGuideLine(dronePos, target);
             const dist = dronePos.distanceTo(target);
@@ -508,7 +509,7 @@ export class LevelManager {
             // Guide line to current exam step target
             const step = this._examSteps[this._examStepIndex];
             if (step) {
-                const target = new THREE.Vector3(...step.pos);
+                const target = this._reusableTarget.set(step.pos[0], step.pos[1], step.pos[2]);
                 this.activeTarget = target;
                 this._updateGuideLine(dronePos, target);
             }

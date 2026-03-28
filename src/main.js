@@ -62,6 +62,7 @@ class AudioEngine {
 
 // DOM Cache for game loop
 let domCache = {};
+const _gameLoopEuler = new THREE.Euler(); // reused every frame, avoids GC
 
 // --- 選單初始化 ---
 function initSelects(gamepad) {
@@ -466,8 +467,8 @@ function animate() {
         }
 
         // Compass heading from drone quaternion
-        const euler = new THREE.Euler();
-        euler.setFromQuaternion(physics.quat, 'YXZ');
+        _gameLoopEuler.setFromQuaternion(physics.quat, 'YXZ');
+        const euler = _gameLoopEuler;
         let yawDeg = THREE.MathUtils.radToDeg(euler.y);
         yawDeg = ((yawDeg % 360) + 360) % 360; // normalize to 0-360
         const dirs = ['N','NE','E','SE','S','SW','W','NW'];

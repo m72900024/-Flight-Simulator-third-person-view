@@ -78,7 +78,7 @@ export class PhysicsEngine {
         // Reuse tmpVec3 for acceleration
         const accel = this._tmpVec3.copy(force).divideScalar(CONFIG.mass);
         this.vel.add(accel.multiplyScalar(dt));
-        this.pos.add(this.vel.clone().multiplyScalar(dt));
+        this.pos.add(this._tmpVec3.copy(this.vel).multiplyScalar(dt));
 
         // Decay crash intensity (frame-rate independent)
         this.crashIntensity *= Math.pow(0.92, dt * 60);
@@ -130,12 +130,12 @@ export class PhysicsEngine {
             const targetPitch = input.p * maxTilt;
             const targetRoll = -input.r * maxTilt;
 
-            const euler = new THREE.Euler().setFromQuaternion(this.quat, 'YXZ');
+            this._tmpEuler.setFromQuaternion(this.quat, 'YXZ');
 
             // Spring-damper: angVel = kP * error - kD * currentAngVel
             const kP = 12.0, kD = 0.6;
-            const pitchError = targetPitch - euler.x;
-            const rollError  = targetRoll  - euler.z;
+            const pitchError = targetPitch - this._tmpEuler.x;
+            const rollError  = targetRoll  - this._tmpEuler.z;
             this.rotVel.x = kP * pitchError - kD * this.rotVel.x;
             this.rotVel.z = kP * rollError  - kD * this.rotVel.z;
 
@@ -156,11 +156,11 @@ export class PhysicsEngine {
             const targetPitch = input.p * maxTilt;
             const targetRoll = -input.r * maxTilt;
 
-            const euler = new THREE.Euler().setFromQuaternion(this.quat, 'YXZ');
+            this._tmpEuler.setFromQuaternion(this.quat, 'YXZ');
 
             const kP = 12.0, kD = 0.6;
-            const pitchError = targetPitch - euler.x;
-            const rollError  = targetRoll  - euler.z;
+            const pitchError = targetPitch - this._tmpEuler.x;
+            const rollError  = targetRoll  - this._tmpEuler.z;
             this.rotVel.x = kP * pitchError - kD * this.rotVel.x;
             this.rotVel.z = kP * rollError  - kD * this.rotVel.z;
 
@@ -187,6 +187,7 @@ export class PhysicsEngine {
             // 2. Angle correction targets stick-commanded angle (not zero!) - reuse tmpEuler
             const targetPitch = input.p * maxTilt;
             const targetRoll  = -input.r * maxTilt;
+            this._tmpEuler.setFromQuaternion(this.quat, 'YXZ'); // fix: read current attitude
             const angleCorrectP = (targetPitch - this._tmpEuler.x) * 8.0;
             const angleCorrectR = (targetRoll  - this._tmpEuler.z) * 8.0;
 

@@ -3,7 +3,7 @@ import { CONFIG } from './Config.js';
 export class GameScene {
     constructor() {
         this.scene = new THREE.Scene();
-        this.scene.fog = new THREE.FogExp2(0xc8e6ff, 0.005);
+        this.scene.fog = new THREE.FogExp2(0xbbd8f0, 0.0038);
 
         this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 500);
         this.camera.position.set(0, 2.5, 10);
@@ -14,6 +14,9 @@ export class GameScene {
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.1;
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
         document.body.appendChild(this.renderer.domElement);
 
         this.droneGroup = new THREE.Group();
@@ -22,6 +25,7 @@ export class GameScene {
         this.ledMesh = null;
         this.clouds = [];
         this.windSock = null;
+        this._navLights = [];
 
         this._createSkyDome();
         this._initLights();
@@ -32,11 +36,12 @@ export class GameScene {
     }
 
     _createSkyDome() {
-        const skyGeo = new THREE.SphereGeometry(400, 32, 32);
+        const skyGeo = new THREE.SphereGeometry(400, 32, 16);
         const skyMat = new THREE.ShaderMaterial({
             uniforms: {
-                topColor: { value: new THREE.Color(0x3a8fd6) },
-                bottomColor: { value: new THREE.Color(0xf5c28a) }
+                topColor:     { value: new THREE.Color(0x1565c0) },
+                midColor:     { value: new THREE.Color(0x64b5f6) },
+                horizonColor: { value: new THREE.Color(0xffcc88) },
             },
             vertexShader: `
                 varying vec3 vWorldPos;
@@ -48,145 +53,253 @@ export class GameScene {
             `,
             fragmentShader: `
                 uniform vec3 topColor;
-                uniform vec3 bottomColor;
+                uniform vec3 midColor;
+                uniform vec3 horizonColor;
                 varying vec3 vWorldPos;
                 void main() {
                     float h = normalize(vWorldPos).y;
-                    gl_FragColor = vec4(mix(bottomColor, topColor, max(h, 0.0)), 1.0);
+                    vec3 col;
+                    if (h > 0.15) {
+                        col = mix(midColor, topColor, (h - 0.15) / 0.85);
+                    } else {
+                        col = mix(horizonColor, midColor, max(h, 0.0) / 0.15);
+                    }
+                    gl_FragColor = vec4(col, 1.0);
                 }
             `,
             side: THREE.BackSide
         });
         this.scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+        // 太陽
+        const sunDir = new THREE.Vector3(150, 180, -250).normalize();
+        const sunPos = sunDir.clone().multiplyScalar(380);
+        const sun = new THREE.Mesh(
+            new THREE.SphereGeometry(11, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xfffde7 })
+        );
+        sun.position.copy(sunPos);
+        this.scene.add(sun);
+
+        // 太陽光暈
+        [22, 35].forEach((r, i) => {
+            const corona = new THREE.Mesh(
+                new THREE.SphereGeometry(r, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0xfff9c4, transparent: true, opacity: 0.10 - i * 0.03 })
+            );
+            corona.position.copy(sunPos);
+            this.scene.add(corona);
+        });
     }
 
     _createClouds() {
-        const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
-        for (let i = 0; i < 8; i++) {
+        const cloudMat = new THREE.MeshStandardMaterial({
+            color: 0xf5f5f5, transparent: true, opacity: 0.92, roughness: 1, metalness: 0
+        });
+        for (let i = 0; i < 12; i++) {
             const group = new THREE.Group();
-            const count = 3 + Math.floor(Math.random() * 3);
+            const count = 4 + Math.floor(Math.random() * 5);
             for (let j = 0; j < count; j++) {
-                const s = 1.5 + Math.random() * 2.5;
-                const sphere = new THREE.Mesh(new THREE.SphereGeometry(s, 8, 8), cloudMat);
-                sphere.position.set(j * 2.2 - count, (Math.random() - 0.5) * 1.0, (Math.random() - 0.5) * 1.5);
-                sphere.scale.y = 0.5;
+                const s = 2.0 + Math.random() * 3.5;
+                const sphere = new THREE.Mesh(new THREE.SphereGeometry(s, 7, 7), cloudMat);
+                sphere.position.set(
+                    j * 2.8 - count * 1.3,
+                    (Math.random() - 0.5) * 1.8,
+                    (Math.random() - 0.5) * 2.2
+                );
+                sphere.scale.y = 0.42;
                 group.add(sphere);
             }
             const angle = Math.random() * Math.PI * 2;
-            const dist = 40 + Math.random() * 80;
-            group.position.set(Math.cos(angle) * dist, 40 + Math.random() * 20, Math.sin(angle) * dist);
+            const dist = 60 + Math.random() * 110;
+            group.position.set(Math.cos(angle) * dist, 45 + Math.random() * 30, Math.sin(angle) * dist);
             this.scene.add(group);
             this.clouds.push(group);
         }
     }
 
     _initLights() {
-        this.scene.add(new THREE.HemisphereLight(0xffffff, 0x88aa55, 0.6));
-        const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+        // 主日光（暖色）
+        const dir = new THREE.DirectionalLight(0xfff3e0, 1.4);
         dir.position.set(30, 60, 40);
         dir.castShadow = true;
         dir.shadow.mapSize.set(2048, 2048);
+        dir.shadow.bias = -0.001;
         const sc = dir.shadow.camera;
-        sc.near=0.5; sc.far=200; sc.left=-60; sc.right=60; sc.top=60; sc.bottom=-60;
+        sc.near = 0.5; sc.far = 200; sc.left = -60; sc.right = 60; sc.top = 60; sc.bottom = -60;
         this.scene.add(dir);
-        this.scene.add(new THREE.AmbientLight(0x404060, 0.3));
+
+        // 天空半球光（天藍 + 草綠）
+        this.scene.add(new THREE.HemisphereLight(0x87ceeb, 0x4a7c3f, 0.75));
+
+        // 補光（對側，輕微藍色）
+        const fill = new THREE.DirectionalLight(0xc9e8ff, 0.28);
+        fill.position.set(-20, 30, -30);
+        this.scene.add(fill);
     }
 
     _initEnvironment() {
-        // 草地
+        // 主地面
         const ground = new THREE.Mesh(
             new THREE.PlaneGeometry(300, 300),
-            new THREE.MeshStandardMaterial({ color: 0x3a7d2a, roughness: 0.9 })
+            new THREE.MeshStandardMaterial({ color: 0x3d8b2e, roughness: 0.95 })
         );
-        ground.rotation.x = -Math.PI/2;
+        ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
         this.scene.add(ground);
 
-        // 淡格線
+        // 飛行區內圈（略淺）
+        const innerGround = new THREE.Mesh(
+            new THREE.PlaneGeometry(44, 44),
+            new THREE.MeshStandardMaterial({ color: 0x49992e, roughness: 0.9 })
+        );
+        innerGround.rotation.x = -Math.PI / 2;
+        innerGround.position.y = 0.005;
+        innerGround.receiveShadow = true;
+        this.scene.add(innerGround);
+
+        // 網格
         const grid = new THREE.GridHelper(300, 30, 0x2a6a1a, 0x2a6a1a);
         grid.position.y = 0.01;
-        grid.material.opacity = 0.12;
+        grid.material.opacity = 0.10;
         grid.material.transparent = true;
         this.scene.add(grid);
 
         this._createLandingPad();
+        this._createRunwayLines();
         this._createTrees();
         this._createBuildings();
         this._createFence();
         this._createWindSock();
     }
 
+    _createRunwayLines() {
+        const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        for (let i = 1; i <= 7; i++) {
+            const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 1.4), lineMat);
+            dash.rotation.x = -Math.PI / 2;
+            dash.position.set(0, 0.015, -3 * i);
+            this.scene.add(dash);
+        }
+    }
+
     _createLandingPad() {
-        const pad = new THREE.Mesh(new THREE.CircleGeometry(2, 32),
-            new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.8 }));
-        pad.rotation.x = -Math.PI/2; pad.position.y = 0.02; pad.receiveShadow = true;
+        // 深色圓形停機坪
+        const pad = new THREE.Mesh(
+            new THREE.CircleGeometry(2.2, 32),
+            new THREE.MeshStandardMaterial({ color: 0x252525, roughness: 0.9 })
+        );
+        pad.rotation.x = -Math.PI / 2; pad.position.y = 0.02; pad.receiveShadow = true;
         this.scene.add(pad);
 
-        const ring = new THREE.Mesh(new THREE.RingGeometry(1.6, 1.8, 32),
-            new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.DoubleSide }));
-        ring.rotation.x = -Math.PI/2; ring.position.y = 0.03;
-        this.scene.add(ring);
+        // 黃色外圈
+        const ringOuter = new THREE.Mesh(
+            new THREE.RingGeometry(1.75, 2.05, 32),
+            new THREE.MeshBasicMaterial({ color: 0xffdd00, side: THREE.DoubleSide })
+        );
+        ringOuter.rotation.x = -Math.PI / 2; ringOuter.position.y = 0.03;
+        this.scene.add(ringOuter);
 
+        // 白色內圈
+        const ringInner = new THREE.Mesh(
+            new THREE.RingGeometry(0.58, 0.72, 32),
+            new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })
+        );
+        ringInner.rotation.x = -Math.PI / 2; ringInner.position.y = 0.03;
+        this.scene.add(ringInner);
+
+        // H 字
         const hMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const bars = [
-            { w:0.15, h:1.2, x:-0.3, z:0 }, { w:0.15, h:1.2, x:0.3, z:0 },
-            { w:0.75, h:0.15, x:0, z:0 }
-        ];
-        bars.forEach(b => {
+        [
+            { w: 0.14, h: 1.30, x: -0.36, z: 0 },
+            { w: 0.14, h: 1.30, x:  0.36, z: 0 },
+            { w: 0.82, h: 0.14, x:     0, z: 0 }
+        ].forEach(b => {
             const m = new THREE.Mesh(new THREE.PlaneGeometry(b.w, b.h), hMat);
-            m.rotation.x = -Math.PI/2; m.position.set(b.x, 0.04, b.z);
+            m.rotation.x = -Math.PI / 2; m.position.set(b.x, 0.04, b.z);
             this.scene.add(m);
+        });
+
+        // 角落琥珀燈
+        [[-2.1,-2.1],[2.1,-2.1],[2.1,2.1],[-2.1,2.1]].forEach(([x, z]) => {
+            const l = new THREE.Mesh(
+                new THREE.SphereGeometry(0.07, 6, 6),
+                new THREE.MeshBasicMaterial({ color: 0xff8800 })
+            );
+            l.position.set(x, 0.08, z);
+            this.scene.add(l);
         });
     }
 
     _createTrees() {
-        const tGeo = new THREE.CylinderGeometry(0.15, 0.2, 2, 6);
-        const tMat = new THREE.MeshStandardMaterial({ color: 0x6b4226 });
-        const lMats = [0x2d8a2d, 0x3a9a3a, 0x228822].map(c =>
-            new THREE.MeshStandardMaterial({ color: c }));
-        const layers = [
-            { geo: new THREE.ConeGeometry(1.4, 2.5, 8), yOff: 0 },
-            { geo: new THREE.ConeGeometry(1.0, 2.0, 8), yOff: 1.5 },
-            { geo: new THREE.ConeGeometry(0.6, 1.5, 8), yOff: 2.7 }
-        ];
-        for (let i = 0; i < 25; i++) {
+        for (let i = 0; i < 32; i++) {
             const a = Math.random() * Math.PI * 2;
-            const d = 30 + Math.random() * 60;
-            const x = Math.cos(a)*d, z = Math.sin(a)*d;
-            const s = 0.8 + Math.random() * 0.8;
-            const trunk = new THREE.Mesh(tGeo, tMat);
-            trunk.position.set(x, s, z); trunk.scale.setScalar(s); trunk.castShadow = true;
-            this.scene.add(trunk);
-            const mat = lMats[i % 3];
-            const baseY = s * 2 + 1.0;
-            layers.forEach(l => {
-                const leaf = new THREE.Mesh(l.geo, mat);
-                leaf.position.set(x, baseY + l.yOff * s, z); leaf.scale.setScalar(s); leaf.castShadow = true;
-                this.scene.add(leaf);
-            });
+            const d = 25 + Math.random() * 68;
+            const x = Math.cos(a) * d, z = Math.sin(a) * d;
+            const s = 0.65 + Math.random() * 1.05;
+            const type = i % 3;
+            if (type === 0) this._addPineTree(x, z, s);
+            else if (type === 1) this._addRoundTree(x, z, s);
+            else this._addTallTree(x, z, s);
         }
     }
 
+    _addPineTree(x, z, s) {
+        const tMat = new THREE.MeshStandardMaterial({ color: 0x6b4226, roughness: 0.9 });
+        const colors = [0x2d8a2d, 0x1a6b1a, 0x3a9a3a];
+        const lMat = new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random()*3)], roughness: 0.85 });
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 2, 6), tMat);
+        trunk.position.set(x, s, z); trunk.scale.setScalar(s); trunk.castShadow = true;
+        this.scene.add(trunk);
+        [[1.5,0],[1.1,1.4],[0.7,2.6]].forEach(([r, yo]) => {
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(r*s, 2.2*s, 7), lMat);
+            cone.position.set(x, s*2+yo*s, z); cone.castShadow = true;
+            this.scene.add(cone);
+        });
+    }
+
+    _addRoundTree(x, z, s) {
+        const tMat = new THREE.MeshStandardMaterial({ color: 0x8b6348, roughness: 0.9 });
+        const colors = [0x5dab3a, 0x4d9c30, 0x66bb44];
+        const lMat = new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random()*3)], roughness: 0.85 });
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.16, 2.5, 6), tMat);
+        trunk.position.set(x, s*1.25, z); trunk.scale.setScalar(s); trunk.castShadow = true;
+        this.scene.add(trunk);
+        const canopy = new THREE.Mesh(new THREE.SphereGeometry(1.4*s, 8, 6), lMat);
+        canopy.position.set(x, s*3.2, z); canopy.scale.y = 0.88; canopy.castShadow = true;
+        this.scene.add(canopy);
+        const side = new THREE.Mesh(new THREE.SphereGeometry(0.95*s, 7, 5), lMat);
+        side.position.set(x+0.8*s, s*2.9, z+0.4*s); side.castShadow = true;
+        this.scene.add(side);
+    }
+
+    _addTallTree(x, z, s) {
+        const tMat = new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.9 });
+        const lMat = new THREE.MeshStandardMaterial({ color: 0x388e3c, roughness: 0.85 });
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 4, 6), tMat);
+        trunk.position.set(x, s*2, z); trunk.castShadow = true;
+        this.scene.add(trunk);
+        const canopy = new THREE.Mesh(new THREE.ConeGeometry(0.9*s, 5*s, 6), lMat);
+        canopy.position.set(x, s*5.5, z); canopy.castShadow = true;
+        this.scene.add(canopy);
+    }
+
     _createBuildings() {
-        const winMat = new THREE.MeshBasicMaterial({ color: 0xffffee, side: THREE.DoubleSide });
-        const roofMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
-        [{x:-40,z:-30,w:8,h:6,d:10,c:0x888888},{x:35,z:-25,w:6,h:4,d:8,c:0x999988},{x:-30,z:40,w:10,h:3,d:6,c:0x887766}]
+        [{x:-40,z:-30,w:8,h:6,d:10,c:0x9e9e9e},{x:35,z:-25,w:6,h:4,d:8,c:0xbcaaa4},{x:-30,z:40,w:10,h:3,d:6,c:0xa5d6a7}]
         .forEach(b => {
-            const m = new THREE.Mesh(new THREE.BoxGeometry(b.w,b.h,b.d),
-                new THREE.MeshStandardMaterial({color:b.c,roughness:0.7}));
-            m.position.set(b.x,b.h/2,b.z); m.castShadow=true; m.receiveShadow=true;
-            this.scene.add(m);
-            // Roof
-            const roof = new THREE.Mesh(new THREE.BoxGeometry(b.w+0.4, 0.2, b.d+0.4), roofMat);
-            roof.position.set(b.x, b.h+0.1, b.z); roof.castShadow=true;
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(b.w,b.h,b.d),
+                new THREE.MeshStandardMaterial({color:b.c,roughness:0.8}));
+            mesh.position.set(b.x,b.h/2,b.z); mesh.castShadow=true; mesh.receiveShadow=true;
+            this.scene.add(mesh);
+            const roof = new THREE.Mesh(new THREE.BoxGeometry(b.w+0.5,0.3,b.d+0.5),
+                new THREE.MeshStandardMaterial({color:0x37474f,roughness:0.9}));
+            roof.position.set(b.x,b.h+0.15,b.z); roof.castShadow=true;
             this.scene.add(roof);
-            // Windows (4 on front face)
-            for (let wi = 0; wi < 2; wi++) {
-                for (let wj = 0; wj < 2; wj++) {
-                    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.8), winMat);
-                    win.position.set(b.x - b.w*0.25 + wi*b.w*0.5, b.h*0.35 + wj*b.h*0.35, b.z + b.d/2 + 0.01);
-                    this.scene.add(win);
-                }
+            const winMat = new THREE.MeshBasicMaterial({color:0xffffee,side:THREE.DoubleSide});
+            for(let wi=0;wi<2;wi++) for(let wj=0;wj<2;wj++) {
+                const win = new THREE.Mesh(new THREE.PlaneGeometry(0.8,0.8),winMat);
+                win.position.set(b.x-b.w*0.25+wi*b.w*0.5,b.h*0.35+wj*b.h*0.35,b.z+b.d/2+0.01);
+                this.scene.add(win);
             }
         });
     }
@@ -202,116 +315,274 @@ export class GameScene {
                 this.scene.add(p);
             });
         }
-        // Horizontal bars between adjacent posts
         const barH = new THREE.BoxGeometry(4, 0.06, 0.06);
         const barV = new THREE.BoxGeometry(0.06, 0.06, 4);
         for (let i = -20; i < 20; i += 4) {
             const cx = i + 2;
-            // top side (z = -20)
             const bt = new THREE.Mesh(barV, barMat); bt.position.set(-20, 1.0, cx); this.scene.add(bt);
-            // bottom side (z = 20)
             const bb = new THREE.Mesh(barV, barMat); bb.position.set(20, 1.0, cx); this.scene.add(bb);
-            // left side (x = -20)
             const bl = new THREE.Mesh(barH, barMat); bl.position.set(cx, 1.0, -20); this.scene.add(bl);
-            // right side (x = 20)
             const br = new THREE.Mesh(barH, barMat); br.position.set(cx, 1.0, 20); this.scene.add(br);
         }
     }
 
     _createWindSock() {
-        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.06,4,6),
-            new THREE.MeshStandardMaterial({color:0xcccccc}));
-        pole.position.set(15,2,0); pole.castShadow=true;
+        // 旗桿（金屬感）
+        const pole = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.04, 0.06, 4, 8),
+            new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.3, metalness: 0.85 })
+        );
+        pole.position.set(15, 2, 0); pole.castShadow = true;
         this.scene.add(pole);
-        const sock = new THREE.Mesh(new THREE.ConeGeometry(0.3,1.5,8),
-            new THREE.MeshStandardMaterial({color:0xff6600}));
-        sock.position.set(15.5,3.8,0); sock.rotation.z=-Math.PI/2;
-        this.scene.add(sock);
-        this.windSock = sock;
+
+        // 風向袋（橙白相間）
+        const sockGroup = new THREE.Group();
+        sockGroup.position.set(15, 4, 0);
+        [0xff6600, 0xffffff, 0xff6600, 0xffffff].forEach((c, i) => {
+            const band = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.27 - i * 0.02, 0.31 - i * 0.02, 0.34, 8, 1, true),
+                new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, side: THREE.DoubleSide })
+            );
+            band.position.y = -i * 0.31;
+            sockGroup.add(band);
+        });
+        this.scene.add(sockGroup);
+        this.windSock = sockGroup;
     }
 
     _createDrone() {
-        const mat = new THREE.MeshStandardMaterial({color:0x1a1a1a, roughness:0.4});
-        const redMat = new THREE.MeshStandardMaterial({color:0xff2200});
-        const blueMat = new THREE.MeshStandardMaterial({color:0x0066ff});
-        this.droneGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.18,0.04,0.22), mat));
+        // === 材質 ===
+        const cfMat = new THREE.MeshStandardMaterial({ color: 0x0d0d0d, roughness: 0.28, metalness: 0.68 });
+        const motorBellMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.12, metalness: 0.96 });
+        const redMat = new THREE.MeshStandardMaterial({ color: 0xcc2200, roughness: 0.3, metalness: 0.55 });
+        const blueMat = new THREE.MeshStandardMaterial({ color: 0x0055cc, roughness: 0.3, metalness: 0.55 });
+        const fcMat = new THREE.MeshStandardMaterial({ color: 0x0a2a0a, roughness: 0.8, metalness: 0.2 });
+        const goldMat = new THREE.MeshStandardMaterial({ color: 0xc89010, roughness: 0.18, metalness: 0.96 });
 
-        const aps = [{x:0.18,z:-0.18,a:-Math.PI/4},{x:-0.18,z:-0.18,a:Math.PI/4},
-                     {x:0.18,z:0.18,a:Math.PI/4},{x:-0.18,z:0.18,a:-Math.PI/4}];
-        const armG = new THREE.BoxGeometry(0.32,0.015,0.03);
-        const motG = new THREE.CylinderGeometry(0.025,0.03,0.03,8);
-        const propG = new THREE.BoxGeometry(0.24,0.003,0.02);
-        const discG = new THREE.CircleGeometry(0.12,12);
+        // === 機架上下板 ===
+        const topPlate = new THREE.Mesh(new THREE.BoxGeometry(0.195, 0.007, 0.235), cfMat);
+        topPlate.position.y = 0.027;
+        this.droneGroup.add(topPlate);
 
-        aps.forEach((ap,i) => {
-            const arm = new THREE.Mesh(armG, mat);
-            arm.position.set(ap.x/2,0.01,ap.z/2); arm.rotation.y=ap.a;
+        const botPlate = new THREE.Mesh(new THREE.BoxGeometry(0.175, 0.007, 0.200), cfMat);
+        botPlate.position.y = -0.019;
+        this.droneGroup.add(botPlate);
+
+        // FC/ESC 疊層
+        const fc = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.014, 0.068), fcMat);
+        fc.position.y = 0.017;
+        this.droneGroup.add(fc);
+
+        // 電容（豎立小圓柱）
+        const cap = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.007, 0.007, 0.020, 8),
+            new THREE.MeshStandardMaterial({ color: 0x333399, roughness: 0.4 })
+        );
+        cap.position.set(0.020, 0.031, 0.020);
+        this.droneGroup.add(cap);
+
+        // VTX 天線
+        const ant = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.003, 0.003, 0.055, 4),
+            new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 })
+        );
+        ant.position.set(0.040, 0.055, 0);
+        this.droneGroup.add(ant);
+
+        // === 四臂 + 馬達 + 螺旋槳 ===
+        const armDefs = [
+            { x:  0.19, z: -0.19, a: -Math.PI/4, isRed: true  }, // FR
+            { x: -0.19, z: -0.19, a:  Math.PI/4, isRed: true  }, // FL
+            { x:  0.19, z:  0.19, a:  Math.PI/4, isRed: false }, // RR
+            { x: -0.19, z:  0.19, a: -Math.PI/4, isRed: false }, // RL
+        ];
+
+        armDefs.forEach((ap, i) => {
+            // 機臂（方形截面碳纖管）
+            const arm = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.013, 0.013), cfMat);
+            arm.position.set(ap.x / 2, 0.004, ap.z / 2);
+            arm.rotation.y = ap.a;
             this.droneGroup.add(arm);
-            const motor = new THREE.Mesh(motG, i<2?redMat:blueMat);
-            motor.position.set(ap.x,0.03,ap.z);
-            this.droneGroup.add(motor);
 
+            // 馬達底板
+            const mBase = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.005, 8), cfMat);
+            mBase.position.set(ap.x, -0.008, ap.z);
+            this.droneGroup.add(mBase);
+
+            // 馬達定子（下半，深色金屬）
+            const stator = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.019, 0.017, 12), motorBellMat);
+            stator.position.set(ap.x, 0.001, ap.z);
+            this.droneGroup.add(stator);
+
+            // 馬達鐘罩（上半，紅/藍色）
+            const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.017, 0.018, 12), ap.isRed ? redMat : blueMat);
+            bell.position.set(ap.x, 0.018, ap.z);
+            this.droneGroup.add(bell);
+
+            // 臂尖航行燈（紅前/藍後）
+            const navLightMat = new THREE.MeshBasicMaterial({ color: ap.isRed ? 0xff1111 : 0x1133ff });
+            const navLight = new THREE.Mesh(new THREE.SphereGeometry(0.006, 5, 5), navLightMat);
+            navLight.position.set(ap.x * 0.82, 0.014, ap.z * 0.82);
+            this.droneGroup.add(navLight);
+            this._navLights.push({ mat: navLightMat, isRed: ap.isRed });
+
+            // === 螺旋槳組 ===
             const pg = new THREE.Group();
-            pg.position.set(ap.x,0.05,ap.z);
-            const disc = new THREE.Mesh(discG, new THREE.MeshBasicMaterial({
-                color:i<2?0xff4444:0x4444ff, transparent:true, opacity:0, side:THREE.DoubleSide}));
-            disc.rotation.x=-Math.PI/2; disc.userData={isDisc:true}; pg.add(disc);
-            for(let b=0;b<2;b++){
-                const blade = new THREE.Mesh(propG, new THREE.MeshBasicMaterial({color:0x333333,side:THREE.DoubleSide}));
-                blade.rotation.y=b*Math.PI/2; blade.userData={isBlade:true}; pg.add(blade);
+            pg.position.set(ap.x, 0.033, ap.z);
+
+            // 螺帽
+            const spinner = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.011, 0.011, 6), goldMat);
+            spinner.position.y = 0.006;
+            pg.add(spinner);
+
+            // 模糊碟（高油門時浮現）
+            const disc = new THREE.Mesh(
+                new THREE.CircleGeometry(0.112, 14),
+                new THREE.MeshBasicMaterial({
+                    color: ap.isRed ? 0xff4433 : 0x3344ff,
+                    transparent: true, opacity: 0, side: THREE.DoubleSide
+                })
+            );
+            disc.rotation.x = -Math.PI / 2;
+            disc.userData = { isDisc: true };
+            pg.add(disc);
+
+            // 槳葉（兩片，較寬）
+            for (let b = 0; b < 2; b++) {
+                const blade = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.210, 0.004, 0.025),
+                    new THREE.MeshBasicMaterial({ color: 0x1a1a1a, side: THREE.DoubleSide })
+                );
+                blade.rotation.y = b * Math.PI / 2;
+                blade.userData = { isBlade: true };
+                pg.add(blade);
             }
-            pg.userData={dir:(i%2===0)?1:-1};
+
+            pg.userData = { dir: (i % 2 === 0) ? 1 : -1 };
             this.propellers.push(pg);
             this.droneGroup.add(pg);
         });
 
-        // cam + battery + LED
-        const cam = new THREE.Mesh(new THREE.BoxGeometry(0.04,0.04,0.03), new THREE.MeshBasicMaterial({color:0x111111}));
-        cam.position.set(0,0.02,-0.13); cam.rotation.x=-0.5; this.droneGroup.add(cam);
-        const batt = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.025,0.12), new THREE.MeshStandardMaterial({color:0x444444}));
-        batt.position.set(0,-0.02,0); this.droneGroup.add(batt);
-        this.ledMesh = new THREE.Mesh(new THREE.SphereGeometry(0.015,4,4), new THREE.MeshBasicMaterial({color:0x00ff00}));
-        this.ledMesh.position.set(0,0,0.15); this.droneGroup.add(this.ledMesh);
+        // === FPV 鏡頭（帶俯仰角）===
+        const camTilt = new THREE.Group();
+        camTilt.position.set(0, 0.010, -0.116);
+        camTilt.rotation.x = -0.38;
+
+        const camBody = new THREE.Mesh(
+            new THREE.BoxGeometry(0.023, 0.023, 0.022),
+            new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.7 })
+        );
+        camTilt.add(camBody);
+
+        const lens = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.009, 0.009, 0.005, 12),
+            new THREE.MeshStandardMaterial({ color: 0x010114, roughness: 0.05, metalness: 0.95 })
+        );
+        lens.rotation.x = Math.PI / 2; lens.position.z = -0.013;
+        camTilt.add(lens);
+
+        const lensRim = new THREE.Mesh(
+            new THREE.TorusGeometry(0.009, 0.0025, 6, 12),
+            new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.2, metalness: 0.9 })
+        );
+        lensRim.rotation.x = Math.PI / 2; lensRim.position.z = -0.013;
+        camTilt.add(lensRim);
+
+        this.droneGroup.add(camTilt);
+
+        // === 電池（帶綁帶）===
+        const batt = new THREE.Mesh(
+            new THREE.BoxGeometry(0.080, 0.021, 0.110),
+            new THREE.MeshStandardMaterial({ color: 0x1a237e, roughness: 0.6 })
+        );
+        batt.position.set(0, -0.026, 0.010);
+        this.droneGroup.add(batt);
+
+        const strap = new THREE.Mesh(
+            new THREE.BoxGeometry(0.090, 0.006, 0.115),
+            new THREE.MeshStandardMaterial({ color: 0xff4400, roughness: 0.7 })
+        );
+        strap.position.set(0, -0.015, 0.010);
+        this.droneGroup.add(strap);
+
+        // === 起落架（四腳 + 橫桿）===
+        const legMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.7 });
+        [[-0.055,-0.085],[0.055,-0.085],[-0.055,0.085],[0.055,0.085]].forEach(([lx, lz]) => {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.038, 5), legMat);
+            leg.position.set(lx, -0.038, lz);
+            this.droneGroup.add(leg);
+        });
+        [-0.090, 0.090].forEach(lz => {
+            const skid = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.005, 0.010), legMat);
+            skid.position.set(0, -0.057, lz);
+            this.droneGroup.add(skid);
+        });
+
+        // === 後方狀態 LED ===
+        this.ledMesh = new THREE.Mesh(
+            new THREE.SphereGeometry(0.013, 6, 6),
+            new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+        );
+        this.ledMesh.position.set(0, 0.022, 0.112);
+        this.droneGroup.add(this.ledMesh);
 
         const s = CONFIG.droneScale;
-        this.droneGroup.scale.set(s,s,s);
-        this.droneGroup.traverse(o => { if(o.isMesh){o.castShadow=true;o.receiveShadow=true;} });
+        this.droneGroup.scale.set(s, s, s);
+        this.droneGroup.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
         this.scene.add(this.droneGroup);
     }
 
     updateDrone(pos, quat, throttle, crashIntensity = 0, armed = false) {
         this.droneGroup.position.copy(pos);
         this.droneGroup.quaternion.copy(quat);
-        for(const pg of this.propellers){
+
+        for (const pg of this.propellers) {
             if (armed) {
-                // 解鎖時：最低轉速 idle（視覺上略轉），油門越高轉越快
                 pg.rotation.y += (0.15 + throttle * 2.5) * pg.userData.dir;
             }
-            // 上鎖時螺旋槳完全靜止（rotation 不更新）
-            for(const c of pg.children){
-                if(c.userData.isDisc) c.material.opacity = armed ? Math.min(0.35, throttle * 0.5) : 0;
-                else if(c.userData.isBlade){
-                    c.material.opacity = armed ? Math.max(0.1, 1 - throttle * 1.5) : 1;
+            for (const c of pg.children) {
+                if (c.userData.isDisc) {
+                    c.material.opacity = armed ? Math.min(0.40, throttle * 0.60) : 0;
+                } else if (c.userData.isBlade) {
+                    c.material.opacity = armed ? Math.max(0.08, 1 - throttle * 1.8) : 1;
                     c.material.transparent = true;
                 }
             }
         }
-        if(this.ledMesh) this.ledMesh.material.color.setHex((Date.now()&256)?0x00ff00:0x002200);
 
-        // Cloud drift
+        // 後方 LED 閃爍：armed = 綠色閃，disarmed = 紅色慢閃
+        if (this.ledMesh) {
+            const t = Date.now();
+            if (armed) {
+                this.ledMesh.material.color.setHex((t & 512) ? 0x00ff00 : 0x003300);
+            } else {
+                this.ledMesh.material.color.setHex((Math.floor(t / 600) % 2 === 0) ? 0xff0000 : 0x330000);
+            }
+        }
+
+        // 航行燈：前臂紅色快閃，後臂藍色常亮
+        const navT = Date.now();
+        this._navLights.forEach(nl => {
+            const on = nl.isRed ? ((navT & 768) > 256) : true;
+            nl.mat.color.setHex(on ? (nl.isRed ? 0xff1111 : 0x1133ff) : 0x050505);
+        });
+
+        // 雲飄移
         for (const cloud of this.clouds) {
-            cloud.position.x += 0.002;
+            cloud.position.x += 0.0018;
             if (cloud.position.x > 150) cloud.position.x = -150;
         }
 
-        // Wind sock animation
-        if (this.windSock) this.windSock.rotation.z = -Math.PI/2 + Math.sin(Date.now()*0.002)*0.3;
+        // 風向袋搖擺
+        if (this.windSock) {
+            this.windSock.rotation.z = Math.sin(Date.now() * 0.0014) * 0.22;
+            this.windSock.rotation.x = Math.sin(Date.now() * 0.0009) * 0.10;
+        }
 
-        // LOS 第三人稱 — 飛手站在地面定點看飛機
+        // LOS 第三人稱鏡頭
         this.cameraTarget.lerp(pos, 0.08);
         let camX = 0, camY = 2.5, camZ = 10;
 
-        // Crash shake
         if (crashIntensity > 0.01) {
             camX += (Math.random() - 0.5) * crashIntensity * 0.3;
             camY += (Math.random() - 0.5) * crashIntensity * 0.3;
@@ -321,7 +592,6 @@ export class GameScene {
         this.camera.position.set(camX, camY, camZ);
         this.camera.lookAt(this.cameraTarget);
 
-        // Crash overlay
         const overlay = document.getElementById('crash-overlay');
         if (overlay) overlay.style.opacity = crashIntensity > 0.01 ? crashIntensity * 0.5 : 0;
     }
@@ -329,7 +599,6 @@ export class GameScene {
     render() { this.renderer.render(this.scene, this.camera); }
 }
 
-// Reset camera target (call when switching levels)
 GameScene.prototype.resetCamera = function() {
     this.cameraTarget.set(0, 1, 0);
 };

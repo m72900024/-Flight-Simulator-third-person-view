@@ -125,14 +125,14 @@ window.calibrateEndpoint = function (ch, type) {
 
 // --- 關卡選擇 ---
 const LEVEL_META = [
-    { icon:'🛫', stars:1, ac1:'#00b4d8', ac2:'#0077b6' },
-    { icon:'🎯', stars:1, ac1:'#06d6a0', ac2:'#028a60' },
-    { icon:'↔️',  stars:2, ac1:'#74c69d', ac2:'#1b7a4a' },
-    { icon:'↕️',  stars:2, ac1:'#a8dadc', ac2:'#3a86a8' },
-    { icon:'🔷', stars:3, ac1:'#8338ec', ac2:'#5a0fcc' },
-    { icon:'🚪', stars:3, ac1:'#fb8500', ac2:'#e25822' },
-    { icon:'∞',  stars:4, ac1:'#f72585', ac2:'#b5179e' },
-    { icon:'🏆', stars:5, ac1:'#ff9f1c', ac2:'#e07000', isExam:true },
+    { icon:'🛫', stars:1, ac1:'#00ffcc', ac2:'#00cc99' },
+    { icon:'🎯', stars:1, ac1:'#00ffcc', ac2:'#00cc99' },
+    { icon:'↔️',  stars:2, ac1:'#00ffcc', ac2:'#00cc99' },
+    { icon:'↕️',  stars:2, ac1:'#00ffcc', ac2:'#00cc99' },
+    { icon:'🔷', stars:3, ac1:'#00ffcc', ac2:'#00cc99' },
+    { icon:'🚪', stars:3, ac1:'#00ffcc', ac2:'#00cc99' },
+    { icon:'∞',  stars:4, ac1:'#00ffcc', ac2:'#00cc99' },
+    { icon:'🏆', stars:5, ac1:'#00ffcc', ac2:'#00cc99', isExam:true },
 ];
 
 function showLevelSelect() {

@@ -124,33 +124,71 @@ window.calibrateEndpoint = function (ch, type) {
 };
 
 // --- 關卡選擇 ---
+const LEVEL_META = [
+    { icon:'🛫', stars:1, ac1:'#00b4d8', ac2:'#0077b6' },
+    { icon:'🎯', stars:1, ac1:'#06d6a0', ac2:'#028a60' },
+    { icon:'↔️',  stars:2, ac1:'#74c69d', ac2:'#1b7a4a' },
+    { icon:'↕️',  stars:2, ac1:'#a8dadc', ac2:'#3a86a8' },
+    { icon:'🔷', stars:3, ac1:'#8338ec', ac2:'#5a0fcc' },
+    { icon:'🚪', stars:3, ac1:'#fb8500', ac2:'#e25822' },
+    { icon:'∞',  stars:4, ac1:'#f72585', ac2:'#b5179e' },
+    { icon:'🏆', stars:5, ac1:'#ff9f1c', ac2:'#e07000', isExam:true },
+];
+
 function showLevelSelect() {
     appState = 'LEVEL_SELECT';
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('level-select').style.display = 'flex';
+
     const grid = document.getElementById('level-grid');
     grid.innerHTML = '';
     const bestTimes = JSON.parse(localStorage.getItem('flightSimBest') || '{}');
     const unlockedLevel = LevelManager.getUnlockedLevel();
-    CONFIG.levels.forEach(lv => {
-        const best = bestTimes['L' + lv.id];
+
+    let doneCount = 0;
+
+    CONFIG.levels.forEach((lv, i) => {
+        const meta  = LEVEL_META[i] || { icon:'🚁', stars:1, ac1:'#00ffcc', ac2:'#0099ff' };
+        const best  = bestTimes['L' + lv.id];
         const locked = lv.id > unlockedLevel;
+        const done   = !!best;
+        if (done) doneCount++;
+
+        const stars = '★'.repeat(meta.stars) + '☆'.repeat(5 - meta.stars);
+
         const div = document.createElement('div');
-        div.className = 'level-card';
+        div.className = 'level-card' + (locked ? ' locked' : '') + (done ? ' completed' : '') + (meta.isExam ? ' exam-card' : '');
+        div.style.setProperty('--ac1', meta.ac1);
+        div.style.setProperty('--ac2', meta.ac2);
+
         div.innerHTML = `
-            <div class="level-num">${lv.id}</div>
-            <div class="level-name">${lv.name}</div>
-            <div class="level-desc">${lv.desc}</div>
-            <div class="level-best">${locked ? '🔒' : (best ? '✅ ' + best + 's' : '—')}</div>
+            <div class="lc-accent"></div>
+            <div class="lc-body">
+                <div class="lc-num">LV.${lv.id}</div>
+                <div class="lc-icon">${meta.icon}</div>
+                <div class="lc-name">${lv.name}</div>
+                <div class="lc-desc">${lv.desc}</div>
+                <div class="lc-stars" style="color:${meta.ac1}">${stars}</div>
+                <div class="lc-best ${done ? '' : 'empty'}">${done ? '✅ ' + best + 's' : '— 尚未完成'}</div>
+            </div>
+            ${done ? '<div class="lc-banner">DONE</div>' : ''}
+            <div class="lc-lock">🔒</div>
         `;
-        if (locked) {
-            div.style.opacity = '0.4';
-            div.style.cursor = 'not-allowed';
-        } else {
+
+        if (!locked) {
             div.onclick = () => { selectedLevel = lv.id; startGame(); };
         }
         grid.appendChild(div);
     });
+
+    // 更新統計列
+    const doneEl = document.getElementById('ls-done');
+    if (doneEl) doneEl.textContent = doneCount;
+    const scoreEl = document.getElementById('ls-score');
+    if (scoreEl) {
+        const total = Object.values(bestTimes).reduce((s, v) => s + parseFloat(v || 0), 0);
+        scoreEl.textContent = total > 0 ? total.toFixed(1) + 's' : '--';
+    }
 }
 
 window.startKeyboard = function () {
